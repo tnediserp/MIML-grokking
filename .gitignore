@@ -131,3 +131,7 @@ dmypy.json
 default
 checkpoints
 .vscode
+
+MIML_proj_Grokking/
+debug/
+lightning_logs/
