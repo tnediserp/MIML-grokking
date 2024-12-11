@@ -104,7 +104,7 @@ class TrainableTransformer(LightningModule):
             help="for list operations, the length of the lists",
         )
 
-        parser.add_argument("--train_data_pct", type=float, default=5)
+        parser.add_argument("--train_data_pct", type=float, default=50) # The training set size is 50% by default
         parser.add_argument("--warmup_steps", type=int, default=10)
         parser.add_argument("--anneal_lr_steps", type=int, default=100000)
         parser.add_argument("--anneal_lr", dest="anneal_lr", action="store_true")
@@ -158,7 +158,7 @@ class TrainableTransformer(LightningModule):
 
         :returns: an iterator for self.train_dataset
         """
-        # print("enter func: train_dataloader")
+        print(f"epoch {self.current_epoch} enter func: train_dataloader")
         
         device = self.transformer.embedding.weight.device
         iterator = ArithmeticIterator(
@@ -794,8 +794,12 @@ class TrainableTransformer(LightningModule):
         # save a checkpoint if the epoch is a power of 2
         if (
             self.current_epoch > 0
-            and int(2 ** (int(np.log(self.current_epoch) / np.log(2))))
+            and (
+            int(2 ** (int(np.log(self.current_epoch) / np.log(2))))
             == self.current_epoch
+            or int(2 ** (int(np.log(self.current_epoch + 1) / np.log(2))))
+            == self.current_epoch + 1
+            )
         ):
             self.trainer.save_checkpoint(
                 os.path.join(
