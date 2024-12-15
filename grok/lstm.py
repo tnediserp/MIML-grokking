@@ -27,378 +27,14 @@ from grok.data import (
     ArithmeticIterator,
 )
 from grok.optimizer import CustomAdamW
+from grok.transformer import Embedding, Linear
 
 DEFAULT_LOG_DIR = "logs"
 
 
-class Linear(nn.Linear):
-    def __init__(self, *args, **kwargs):
-        self.weight_noise = kwargs.pop("weight_noise")
-        super().__init__(*args, **kwargs)
-
-    def forward(self, input: Tensor) -> Tensor:
-        if self.weight_noise > 0 and self.training:
-            bias = self.bias if self.bias is None else self.bias + torch.randn_like(self.bias) * self.weight_noise
-            weight = self.weight + torch.randn_like(self.weight) * self.weight_noise
-            # weight = self.weight * torch.exp(torch.randn_like(self.weight) * self.weight_noise)
-        else:
-            bias = self.bias
-            weight = self.weight
-            
-        return F.linear(
-            input,
-            weight,
-            bias,
-        )
-
-class LayerNorm(nn.LayerNorm):
-    def __init__(self, *args, **kwargs):
-        self.weight_noise = kwargs.pop("weight_noise")
-        super().__init__(*args, **kwargs)
-
-    def forward(self, input: Tensor) -> Tensor:
-        if self.weight_noise > 0 and self.training:
-            bias = self.bias if self.bias is None else self.bias + torch.randn_like(self.bias) * self.weight_noise
-            weight = self.weight + torch.randn_like(self.weight) * self.weight_noise
-            # weight = self.weight * torch.exp(torch.randn_like(self.weight) * self.weight_noise)
-        else:
-            bias = self.bias
-            weight = self.weight
-        return F.layer_norm(
-            input,
-            self.normalized_shape,
-            weight,
-            bias,
-            self.eps,
-        )
-
-
-class Embedding(nn.Embedding):
-    def __init__(self, *args, **kwargs):
-        self.weight_noise = kwargs.pop("weight_noise")
-        super().__init__(*args, **kwargs)
-
-    def forward(self, input: Tensor) -> Tensor:
-        if self.weight_noise > 0 and self.training:
-            weight = self.weight + torch.randn_like(self.weight) * self.weight_noise
-            # weight = self.weight * torch.exp(torch.randn_like(self.weight) * self.weight_noise)
-        else:
-            weight = self.weight
-        return F.embedding(
-            input,
-            weight,
-            self.padding_idx,
-            self.max_norm,
-            self.norm_type,
-            self.scale_grad_by_freq,
-            self.sparse,
-        )
-
-
-class AttentionHead(nn.Module):
-    def __init__(self, d_model: int, d_key: int, weight_noise: float) -> None:
-
-        super().__init__()
-
-        self.d_key = d_key
-
-        # head projections
-        self.Wq = Linear(d_model, d_key, bias=False, weight_noise=weight_noise)
-        self.Wk = Linear(d_model, d_key, bias=False, weight_noise=weight_noise)
-        self.Wv = Linear(d_model, d_key, bias=False, weight_noise=weight_noise)
-
-        self.softmax = nn.Softmax(dim=-1)
-
-    def forward(
-        self,
-        queries: Tensor,
-        keys: Tensor,
-        values: Tensor,
-        mask: Union[Tensor, None] = None,
-        save_activations: bool = False,
-    ) -> Tuple[Tensor, Union[Tensor, None], Union[Tensor, None]]:
-
-        # project queries, keys, values
-        queries = self.Wq(queries)
-        keys = self.Wk(keys)
-        values = self.Wv(values)
-
-        # calculate compatibility function
-        attn = torch.matmul(queries, torch.transpose(keys, -2, -1))
-        attn = attn / sqrt(self.d_key)
-
-        # Filter out attention to future positions
-        if mask is not None:
-            attn.masked_fill_(mask == 0, float("-inf"))
-
-        # softmax
-        attn = self.softmax(attn)
-
-        # sum the weighted value vectors
-        result: Tensor = torch.matmul(attn, values)  # shape = (max_context_len, d_key)
-        if save_activations:
-            leaf_attn = attn.clone().detach()  # type: ignore
-            leaf_values = values.clone().detach()  # type: ignore
-        else:
-            leaf_attn = None  # type: ignore
-            leaf_values = None  # type: ignore
-
-        return result, leaf_attn, leaf_values
-
-
-class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model: int, heads: int, weight_noise: float = 0.0) -> None:
-        super().__init__()
-        d_key = int(d_model / heads)
-
-        attn_heads = [
-            AttentionHead(d_model, d_key, weight_noise=weight_noise)
-            for _ in range(heads)
-        ]
-        self.attn_heads = nn.ModuleList(attn_heads)
-        self.Wo = Linear(d_model, d_model, bias=False, weight_noise=weight_noise)
-
-    def forward(
-        self,
-        queries: Tensor,
-        keys: Tensor,
-        values: Tensor,
-        mask: Tensor = None,
-        save_activations=False,
-    ) -> Tuple[Tensor, List[Tensor], List[Tensor]]:
-
-        head_outputs = [
-            h(
-                queries=queries,
-                keys=keys,
-                values=values,
-                mask=mask,
-                save_activations=save_activations,
-            )
-            for h in self.attn_heads
-        ]
-        head_results = [output[0] for output in head_outputs]
-
-        if save_activations:
-            layer_attns = list([output[1] for output in head_outputs])
-            layer_values = list([output[2] for output in head_outputs])
-        else:
-            layer_attns = []
-            layer_values = []
-
-        multihead_result = torch.cat(head_results, dim=-1)
-        multihead_result = self.Wo(multihead_result)
-        return multihead_result, layer_attns, layer_values
-
-
-class FFN(nn.Module):
-    def __init__(
-        self,
-        d_model: int,
-        multiplier: int = 4,
-        non_linearity: str = "relu",
-        weight_noise: float = 0.0,
-    ) -> None:
-        super().__init__()
-
-        d_ff = int(multiplier * d_model)
-
-        non_linearities = {"relu": nn.ReLU, "gelu": nn.GELU}
-
-        self.ffn = nn.Sequential(
-            Linear(d_model, d_ff, bias=False, weight_noise=weight_noise),
-            non_linearities[non_linearity](),
-            Linear(d_ff, d_model, bias=False, weight_noise=weight_noise),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        return self.ffn(x)
-
-
-class DecoderBlock(nn.Module):
-    def __init__(
-        self,
-        d_model: int,
-        heads: int,
-        dropout: float,
-        non_linearity: str = "relu",
-        weight_noise: float = 0.0,
-    ) -> None:
-        super().__init__()
-
-        self.self_attn = MultiHeadAttention(d_model, heads, weight_noise=weight_noise)
-        # self.self_attn_drop = nn.Dropout(p=dropout)
-        self.self_attn_norm = LayerNorm(d_model, weight_noise=weight_noise)
-
-        self.ffn = FFN(d_model, non_linearity=non_linearity, weight_noise=weight_noise)
-        self.ffn_drop = nn.Dropout(p=dropout)
-        self.ffn_norm = LayerNorm(d_model, weight_noise=weight_noise)
-
-    def forward(
-        self,
-        x: Tensor,
-        self_attn_mask: Tensor = None,
-        save_activations: bool = False,
-    ) -> Tuple[Tensor, List[Tensor], List[Tensor]]:
-        a1, layer_attns, layer_values = self.self_attn(
-            x, x, x, self_attn_mask, save_activations
-        )
-        # a1 = self.self_attn_drop(a1)
-        a1 = self.self_attn_norm(x + a1)
-
-        a2 = self.ffn(a1)
-        a2 = self.ffn_drop(a2)
-        a2 = self.ffn_norm(a1 + a2)
-
-        return a2, layer_attns, layer_values
-
-
-class Decoder(nn.Module):
-    def __init__(
-        self,
-        d_model: int,
-        heads: int,
-        num_blocks: int,
-        dropout: float,
-        non_linearity: str = "relu",
-        weight_noise: float = 0.0,
-    ) -> None:
-        super().__init__()
-
-        self.blocks = nn.ModuleList(
-            [
-                DecoderBlock(
-                    d_model, heads, dropout, non_linearity, weight_noise=weight_noise
-                )
-                for _ in range(num_blocks)
-            ]
-        )
-
-    def forward(
-        self,
-        x: Tensor,
-        self_attn_mask: Tensor = None,
-        save_activations=False,
-    ) -> Tuple[Tensor, List[List[Tensor]], List[List[Tensor]]]:
-
-        a = x
-        attentions = []
-        values = []
-        for block in self.blocks:
-            a, layer_attentions, layer_values = block(
-                a, self_attn_mask, save_activations=save_activations
-            )
-            if save_activations:
-                attentions.append(layer_attentions)
-                values.append(layer_values)
-        return a, attentions, values
-
-
-class Transformer(nn.Module):
-    def __init__(
-        self,
-        n_layers: int = 4,
-        n_heads: int = 4,
-        d_model: int = 256,
-        dropout: float = 0.1,
-        max_context_len: int = 1024,
-        vocab_len: int = 2000,
-        non_linearity: str = "relu",
-        weight_noise: float = 0.0,
-    ) -> None:
-        super().__init__()
-
-        self.n_layers = n_layers
-        self.n_heads = n_heads
-        self.d_model = d_model
-        self.dropout = dropout
-        self.max_context_len = max_context_len
-        self.non_linearity = non_linearity
-
-        self.vocab_len = vocab_len
-
-        self.embedding = Embedding(vocab_len, d_model, weight_noise=weight_noise)  # type: ignore
-        self.register_buffer(
-            "position_encoding", self._position_encoding(max_context_len, d_model)
-        )
-        self.register_buffer("self_attn_mask", self.make_mask(max_context_len))
-
-        self.decoder = Decoder(
-            d_model,
-            n_heads,
-            n_layers,
-            dropout,
-            self.non_linearity,
-            weight_noise=weight_noise,
-        )
-
-        self.linear = Linear(d_model, vocab_len, bias=False, weight_noise=weight_noise)
-
-    @staticmethod
-    def make_mask(context_len: int) -> Tensor:
-        return torch.ones([context_len, context_len]).tril()
-
-    @classmethod
-    def _position_encoding(cls, context_len: int, d_model: int) -> Tensor:
-        rows = [
-            tensor(
-                [
-                    sin(pos / (10000 ** (i / d_model)))
-                    if i % 2 == 0
-                    else cos(pos / (10000 ** ((i - 1) / d_model)))
-                    for i in range(d_model)
-                ]
-            )
-            for pos in range(context_len)
-        ]
-        stack = torch.stack(rows, dim=1)
-
-        return stack.T  # type: ignore
-
-    def embed(self, indices: Tensor) -> Tensor:
-        context_len = indices.shape[-1]
-        pe = self.position_encoding[:context_len, :]  # type: ignore
-
-        embedded = self.embedding(indices)
-
-        return pe + embedded
-
-    def forward(
-        self,
-        x: Tensor,
-        pos: int = None,
-        save_activations: bool = False,
-    ) -> Tuple[Tensor, Union[Tensor, None], Union[Tensor, None]]:
-        """parameters:
-        x:  (rank-1 tensor) vocab indices of decoder input token
-                     sequence"""
-
-        # Make sure sampling inputs are on the correct device
-        x = x.to(self.embedding.weight.device)
-
-        # make_attention mask
-        this_max_context_len = x.shape[-1]
-        self_attn_mask = self.self_attn_mask[  # type: ignore
-            :this_max_context_len, :this_max_context_len
-        ]
-
-        # Decode
-        x = self.embed(x)
-        decoded, attentions, values = self.decoder(
-            x, self_attn_mask, save_activations=save_activations
-        )
-
-        # Return predictions for specific token
-        if pos is not None:
-            decoded = decoded[:, pos, :]
-
-        y_hat = self.linear(decoded)
-        return y_hat, attentions, values
-
-
-class TrainableTransformer(LightningModule):
+class TrainableLSTM(LightningModule):
     """
-    Adds training methods to train a generic transformer on arithmetic equations
+    Adds training methods to train a generic LSTM on arithmetic equations
     """
 
     def __init__(self, hparams: Namespace) -> None:
@@ -410,15 +46,21 @@ class TrainableTransformer(LightningModule):
         self.save_hyperparameters(hparams)
         self.prepare_data()
 
-        self.transformer = Transformer(
-            hparams.n_layers,
-            hparams.n_heads,
-            hparams.d_model,
-            hparams.dropout,
-            hparams.max_context_len,
-            len(self.train_dataset.tokenizer),
-            hparams.non_linearity,
-            weight_noise=self.hparams.weight_noise,
+        self.lstm = torch.nn.LSTM(
+            input_size=hparams.d_model,
+            hidden_size=hparams.d_model,
+            dropout=hparams.dropout,
+            num_layers=hparams.n_layers,
+            batch_first=True
+        )
+        self.vocab_len = len(self.train_dataset.tokenizer)
+        
+        self.linear = Linear(hparams.d_model, self.vocab_len, bias=False, weight_noise=hparams.weight_noise)
+        
+        self.embedding = Embedding(
+            self.vocab_len, 
+            hparams.d_model, 
+            weight_noise=hparams.weight_noise
         )
 
         self.margin = torch.Tensor([0])
@@ -520,7 +162,7 @@ class TrainableTransformer(LightningModule):
         """
         print(f"epoch {self.current_epoch} enter func: train_dataloader")
         
-        device = self.transformer.embedding.weight.device
+        device = self.embedding.weight.device
         iterator = ArithmeticIterator(
             self.train_dataset,
             device,
@@ -542,7 +184,7 @@ class TrainableTransformer(LightningModule):
         """
         # print("enter func: val_dataloader")
         
-        device = self.transformer.embedding.weight.device
+        device = self.embedding.weight.device
         iterator = ArithmeticIterator(
             self.val_dataset,
             device,
@@ -558,7 +200,7 @@ class TrainableTransformer(LightningModule):
         """
         # print("enter func: test_dataloader")
         
-        device = self.transformer.embedding.weight.device
+        device = self.embedding.weight.device
         iterator = ArithmeticIterator(
             self.val_dataset, device, batchsize_hint=-1  # type: ignore
         )
@@ -635,7 +277,7 @@ class TrainableTransformer(LightningModule):
         calculates the frac of equations in the batch for which these
         answers were correct
 
-        :param y_hat: The softmax tensor output of the transformer
+        :param y_hat: The softmax tensor output of the LSTM
         :param y: A tensor of the token ids for the correct answers to each
                   equation in the batch
         :returns: the fraction of equations correctly answered
@@ -703,7 +345,7 @@ class TrainableTransformer(LightningModule):
                 acc = acc.mean()
 
         """
-        device = self.transformer.embedding.weight.device
+        device = self.embedding.weight.device
         self.margin = self.margin.to(device)
 
         output = y_hat_rhs.clone()  # batchsize, vocabsize, rhs tokens
@@ -877,58 +519,6 @@ class TrainableTransformer(LightningModule):
         return output
 
 
-    # def training_epoch_end(self, outputs):
-    #     """
-    #     Used by pytorch_lightning
-    #     Accumulates results of all forward training passes in this epoch
-
-    #     :param outputs: a list of dicts from self.training_step()
-    #     :param batch_idx: which batch this is in the epoch.
-    #     :returns: a dict with loss, accuracy, lr, probabilities of solutions,
-    #               attentions, and values
-    #     """
-    #     epoch_is_to_be_logged = self.current_epoch == self.next_train_epoch_to_log
-    #     if epoch_is_to_be_logged:
-    #         self.next_train_epoch_to_log = max(
-    #             int(1.01 * self.next_train_epoch_to_log),
-    #             self.next_train_epoch_to_log + 1,
-    #         )
-    #         with torch.no_grad():
-    #             try:
-    #                 loss = torch.stack([x["partial_train_loss"] for x in outputs]).sum()
-    #             except Exception as e:
-    #                 print("!" * 80)
-    #                 print(outputs)
-    #                 raise e
-    #             perplexity = torch.exp(loss)
-    #             accuracy = torch.stack(
-    #                 [x["partial_train_accuracy"] for x in outputs]
-    #             ).sum()
-    #         # avg_lr = torch.stack([x["learning_rate"] for x in outputs]).mean()
-    #         # max_lr = torch.stack([x["learning_rate"] for x in outputs]).max()
-    #         # last_lr = outputs[-1]["learning_rate"]
-    #         first_lr = outputs[0]["learning_rate"]
-
-    #         if self.hparams.save_activations or self.hparams.save_outputs:
-    #             if self.current_epoch == 0:
-    #                 self._save_inputs(outputs, ds="train")
-    #             self._save_activations(outputs, ds="train")
-
-    #         logs = {
-    #             "train_loss": loss,
-    #             "train_accuracy": accuracy,
-    #             "train_perplexity": perplexity,
-    #             "learning_rate": first_lr,
-    #             "len_train_ds": len(self.train_dataset),
-    #             "len_val_ds": len(self.val_dataset),
-    #             "batches_per_epoch": self.batches_per_epoch,
-    #             "time_per_epoch": time.time() - self.training_epoch_start_time,
-    #             "fwd_time_in_epoch": self.fwd_time_in_epoch,
-    #         }
-    #         for k, v in logs.items():
-    #             self.log(k, v)
-
-
     # replaced with on_train_epoch_end()
     def on_train_epoch_end(self):
         """
@@ -1031,69 +621,6 @@ class TrainableTransformer(LightningModule):
 
         return output
 
-    # def validation_epoch_end(self, outputs):
-    #     """
-    #     Used by pytorch_lightning
-    #     Accumulates results of all forward validation passes in this epoch
-
-    #     :param outputs: a list of dicts from self.validation_step()
-    #     :param batch_idx: which batch this is in the epoch.
-    #     :returns: a dict with val_loss, val_accuracy
-    #     """
-    #     validation_is_real = len(outputs[0]) != 0
-
-    #     if validation_is_real:
-    #         self.next_epoch_to_eval = max(
-    #             int(1.02 * self.next_epoch_to_eval), self.next_epoch_to_eval + 1
-    #         )
-
-    #         loss = torch.stack([x["partial_val_loss"] for x in outputs]).sum()
-    #         perplexity = torch.exp(loss)
-    #         accuracy = torch.stack([x["partial_val_accuracy"] for x in outputs]).sum()
-
-    #         if self.hparams.save_activations or self.hparams.save_outputs:
-    #             if self.current_epoch == 0:
-    #                 self._save_inputs(outputs, ds="val")
-    #             self._save_activations(outputs, ds="val")
-
-    #         logs = {
-    #             "val_loss": loss,
-    #             "val_accuracy": accuracy,
-    #             "val_perplexity": perplexity,
-    #         }
-    #         for name, param in self.named_parameters():
-    #             # n parameters
-    #             n_params = param.numel()
-    #             # get the l2 norm of the parameter
-    #             logs["paramnorm_" + name] = torch.norm(
-    #                 param, 2
-    #             ).detach().cpu().numpy() / np.sqrt(n_params)
-
-    #         # train accuracy
-    #         device = self.transformer.embedding.weight.device
-    #         train_data = self.train_dataset.data.to(device)
-    #         training_data = {"text": train_data[:, :-1], "target": train_data[:, 1:]}
-    #         with torch.no_grad():
-    #             tr_loss, tr_acc, *_ = self._step(training_data, 0)
-    #             logs["full_train_loss"] = tr_loss
-    #             logs["full_train_acc"] = tr_acc
-
-    #         for k, v in logs.items():
-    #             self.log(k, v)
-    #     # save a checkpoint if the epoch is a power of 2
-    #     if (
-    #         self.current_epoch > 0
-    #         and int(2 ** (int(np.log(self.current_epoch) / np.log(2))))
-    #         == self.current_epoch
-    #     ):
-    #         self.trainer.save_checkpoint(
-    #             os.path.join(
-    #                 self.hparams.checkpoint_path,
-    #                 "epoch_" + str(self.current_epoch) + ".ckpt",
-    #             )
-    #         )
-    #     if validation_is_real:
-    #         return logs
     
     def on_validation_epoch_end(self):
         """
@@ -1138,7 +665,7 @@ class TrainableTransformer(LightningModule):
                 ).detach().cpu().numpy() / np.sqrt(n_params)
 
             # train accuracy
-            device = self.transformer.embedding.weight.device
+            device = self.embedding.weight.device
             train_data = self.train_dataset.data.to(device)
             training_data = {"text": train_data[:, :-1], "target": train_data[:, 1:]}
             with torch.no_grad():
@@ -1225,6 +752,9 @@ class TrainableTransformer(LightningModule):
 
         return {"test_loss": loss, "log": logs}
 
-    def forward(self, *args, **kwargs) -> Any:
-        """Passes all arguments directly to Tranformer.forward()"""
-        return self.transformer(*args, **kwargs)
+    def forward(self, x) -> Any:
+        """Passes all arguments directly to LSTM.forward()"""
+        x = self.embedding(x)
+        output, _ = self.lstm(x)
+        y = self.linear(output)
+        return y

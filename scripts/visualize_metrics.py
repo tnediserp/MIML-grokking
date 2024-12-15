@@ -53,7 +53,7 @@ def load_expt_metrics(
     args = deepcopy(args)
 
     # load the hparams for this experiment
-    with open(f"{expt_dir}/default/version_0/hparams.yaml", "r") as fh:
+    with open(f"{expt_dir}/hparams.yaml", "r") as fh:
         hparams_dict = yaml.safe_load(fh)
 
     for k, v in hparams_dict.items():
@@ -74,7 +74,8 @@ def load_expt_metrics(
         "learning_rate": [],
     }
 
-    with open(f"{expt_dir}/default/version_0/metrics.csv", "r") as fh:
+    with open(f"{expt_dir}/metrics.csv", "r") as fh:
+        print(f"open {expt_dir}/metrics.csv")
         for row in csv.DictReader(fh):
             if row["train_loss"] != "":
                 for k in train_data:
@@ -108,13 +109,22 @@ def load_run_metrics(
     metric_data = {}
     from os import walk
 
+    # expt_dirs = [version_0, version_1...]
     _, expt_dirs, _ = next(os.walk(run_dir))
     for expt_dir in tqdm(expt_dirs, unit="expt"):
         try:
             expt_data = load_expt_metrics(f"{run_dir}/{expt_dir}", args)
             train_data_pct = expt_data["hparams"]["train_data_pct"]
-            metric_data[train_data_pct] = expt_data
+            
+            if train_data_pct not in metric_data:
+                metric_data[train_data_pct] = expt_data
+            else: # this version_i might come from a checkpoint. In this case, append data.
+                for phase in ["train", "val"]:
+                    for key, value in expt_data[phase].items():
+                        metric_data[train_data_pct][phase][key].extend(value)
+        
         except FileNotFoundError:
+            print(f"{run_dir}/{expt_dir}: File not found")
             pass
     return metric_data
 
@@ -154,6 +164,7 @@ def add_metric_graph(
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=T[0], vmax=T[-1]))
     colors = sm.to_rgba(T)
     for i, t in enumerate(T):
+        # print(f"i = {i}")
         if "val" in metric:
             this_data = metric_data[t]["val"]
         else:
@@ -237,6 +248,65 @@ def add_max_accuracy_graph(
     label = f"max {metric} {arch}"
     ax.plot(T, Y, label=label)
 
+def create_grokking_curves(
+    metric_data,
+    operation,
+    train_percent=50,
+    model_name="Transformer",
+    most_interesting_only=False,
+    image_dir=args.output_dir,
+    by="step",
+    max_increment=0,
+    cmap="viridis"
+):
+    fig, ax = plt.subplots(figsize=(8, 5))
+    plt.title(f"Modular {operation} (training on {train_percent}% of data with {model_name})")
+    
+    plt.xscale('log')
+    plt.xlabel(by)
+    plt.yscale('linear')
+    plt.ylabel('Acc')
+    ax.yaxis.set_major_formatter(mtick.PercentFormatter())
+    ymin = 1e-16
+    ymax = 101
+    ax.axis(ymin=ymin, ymax=ymax)
+    
+    T = list(sorted(metric_data.keys()))
+    T_max = int(T[-1])
+    T_min = int(T[0])
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=T[0], vmax=T[-1]))
+    
+    X_train = metric_data[train_percent]["train"][by]
+    X_val = metric_data[train_percent]["val"][by]
+    Y_train = metric_data[train_percent]["train"]["train_accuracy"]
+    Y_val = metric_data[train_percent]["val"]["val_accuracy"]
+
+    if max_increment > 0:
+        X_train = [x for x in X_train if x <= max_increment]
+        Y_train = Y_train[: len(X_train)]
+        
+        X_val = [x for x in X_val if x <= max_increment]
+        Y_val = Y_val[: len(X_val)]
+
+    if len(X_train) != len(Y_train) or len(X_val) != len(Y_val):
+        logger.warning(f"Mismatched train or val data")
+
+    if not Y_train or not Y_val:
+        logger.warning(f"No train or val data")
+    
+    ax.plot(X_train, Y_train, label="train", color="red")
+    ax.plot(X_val, Y_val, label="val", color="blue")
+    ax.legend()
+    
+    img_file = f"{image_dir}/grokking_curves/{operation}_{train_percent}%_{model_name}_{by}"
+    if most_interesting_only:
+        img_file += "_most_interesting"
+    img_file += ".png"
+    d = os.path.split(img_file)[0]
+    os.makedirs(d, exist_ok=True)
+    print(f"Writing {img_file}")
+    fig.savefig(img_file)
+    plt.close(fig)
 
 def create_loss_curves(
     metric_data,
@@ -284,6 +354,17 @@ def create_loss_curves(
     )
     add_metric_graph(
         fig,
+        axs[0, 1],
+        arch,
+        "train_accuracy",
+        metric_data,
+        scales,
+        cmap,
+        by,
+        max_increment=max_increment,
+    )
+    add_metric_graph(
+        fig,
         axs[1, 0],
         arch,
         "train_loss",
@@ -298,6 +379,17 @@ def create_loss_curves(
         axs[1, 1],
         arch,
         "train_accuracy",
+        metric_data,
+        scales,
+        cmap,
+        by,
+        max_increment=max_increment,
+    )
+    add_metric_graph(
+        fig,
+        axs[1, 1],
+        arch,
+        "val_accuracy",
         metric_data,
         scales,
         cmap,
@@ -456,14 +548,29 @@ def get_max_epochs(metric_data):
     hparams = metric_data[k]["hparams"]
     return hparams["max_epochs"]
 
+def get_train_percentage(metric_data):
+    k = list(metric_data.keys())[0]
+    hparams = metric_data[k]["hparams"]
+    return hparams["train_data_pct"]
+
 
 rundir = args.input_dir
 
 try:
     metric_data = load_run_metrics(rundir, args)
+    print("load metric data: success")
+    
     arch = get_arch(metric_data)
     operation = get_operation(metric_data)
+    print(f"operation: {operation}")
+    
     max_epochs = get_max_epochs(metric_data)
+    print(f"max epoch = {max_epochs}")
+    
+    train_pct = get_train_percentage(metric_data)
+    print(f"training data percentage = {train_pct}%")
+    
+    create_grokking_curves(metric_data, operation, train_pct, model_name="Transfomer", by="step")
 
     for by in ["step", "epoch"]:
         create_loss_curves(metric_data, arch, operation, by=by)
