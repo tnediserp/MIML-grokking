@@ -54,7 +54,7 @@ class TrainableMLP(LightningModule):
         # input size: d_model * context_len, output size: vocab_size
         self.mlp = torch.nn.Sequential(
             torch.nn.Flatten(),
-            torch.nn.Linear(hparams.d_model * self.context_len, hidden_1),
+            torch.nn.Linear(2 * self.vocab_size, hidden_1),
             torch.nn.ReLU(),
             torch.nn.Linear(hidden_1, hidden_2),
             torch.nn.ReLU(),
@@ -297,6 +297,25 @@ class TrainableMLP(LightningModule):
         accuracy = (y_hat == y).float() * 100  # shape: batchsize
         return accuracy
 
+    def one_hot_encoder(self, equation: Tensor, num_classes: int):
+        """
+        given a (encoded) equation a + b = c, encode the inputs as one-hot vectors (e_a, e_b), where the dimensions of e_a, e_b is num_classes.
+        return a tensor onehot_x, of size 2 * num_classes
+        """
+        # find the position of "+"
+        add_token_index = self.train_dataset.tokenizer.stoi["+"]
+        add_position_t = torch.nonzero(equation[0, :] == add_token_index, as_tuple=False)
+        add_position = int(add_position_t.squeeze())
+        
+        # for the equation a + b = c, encode the inputs as one-hot vectors (e_a, e_b), where the dimensions of e_a, e_b is num_classes.
+        num_a = equation[..., add_position - 1] # shape = batchsize
+        num_b = equation[..., add_position + 1] # shape = batchsize
+        onehot_a = F.one_hot(num_a, num_classes) # shape = batcsize * num_classes
+        onehot_b = F.one_hot(num_b, num_classes) # shape = batchsize * num_classes
+        onehot_x = torch.stack([onehot_a, onehot_b], dim=-2).float() # shape = batchsize * 2 * num_classes
+        
+        return onehot_x
+
     def _step(
         self,
         batch: Dict,
@@ -325,8 +344,6 @@ class TrainableMLP(LightningModule):
         x = batch["text"]  # shape = batchsize * context_len
         y = batch["target"]  # shape = batchsize * context_len
         
-        print(x)
-        print(y)
         
         # Note: each sample must have exactly one '=' and all of them must
         # have it in the same position.
@@ -334,13 +351,15 @@ class TrainableMLP(LightningModule):
         eq_position_t = torch.nonzero(y[0, :] == eq_token_index, as_tuple=False)
         eq_position = int(eq_position_t.squeeze())
         
-        # LHS of x
-        x_lhs = x[..., : eq_position + 1] # batchsize * 4
+        onehot_x = self.one_hot_encoder(x, self.vocab_size)
         
-        y_hat = self(x) # shape = batchsize * vocab_size
+        
+        y_hat = self(onehot_x) # shape = batchsize * vocab_size
         
         # y_hat = y_hat.transpose(-2, -1)  # shape = batchsize * vocab_size * context_len
 
+        # LHS of x
+        x_lhs = x[..., : eq_position + 1] # batchsize * 4
 
         # only calculate loss/accuracy on right hand side of the equation
         y_rhs = y[..., eq_position + 1] # batchsize
@@ -770,8 +789,8 @@ class TrainableMLP(LightningModule):
 
     def forward(self, x) -> Any:
         """Passes all arguments directly to MLP.forward()"""
+        # x = self.embedding(x)
         
-        x = self.embedding(x)
         output = self.mlp(x)
         
         return output

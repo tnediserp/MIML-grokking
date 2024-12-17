@@ -582,7 +582,7 @@ try:
     train_pct = get_train_percentage(metric_data)
     print(f"training data percentage = {train_pct}%")
     
-    if not (model_name == "Transformer" or model_name == "LSTM"):
+    if not (model_name == "Transformer" or model_name == "LSTM" or model_name == "MLP"):
         print("model name = [Transformer] [LSTM] [MLP]")
         assert(False)
         
