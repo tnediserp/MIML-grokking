@@ -31,6 +31,7 @@ from grok.data import (
 )
 from grok.transformer import TrainableTransformer
 from grok.lstm import TrainableLSTM
+from grok.mlp import TrainableMLP
 from grok.measure import get_sharpness
 
 DEFAULT_LOG_DIR = "logs"
@@ -112,8 +113,12 @@ def train(hparams: Namespace) -> None:
 
     ckpt_file = os.path.join(hparams.checkpoint_path, "epoch_" + str(hparams.ckpt_epoch) + ".ckpt")
 
+    
+    if hparams.ckpt_epoch == "0":
+        print("No checkpoint to load, starting from the beginning.")
+        ckpt_file = None
         
-    if os.path.exists(ckpt_file) == False:
+    elif os.path.exists(ckpt_file) == False:
         print(f"checkpoint {ckpt_file}: No such file. Starting from the beginning.")
         ckpt_file = None
     
@@ -124,8 +129,12 @@ def train(hparams: Namespace) -> None:
     # Create the model
     if hparams.model == "Transformer":
         model = TrainableTransformer(hparams).float()
+        print("Using model Transformer")
     elif hparams.model == "LSTM":
         model = TrainableLSTM(hparams).float()
+        print("Using model LSTM")
+    elif hparams.model == "MLP":
+        model = TrainableMLP(hparams).float()
     else:
         print(f"Model {hparams.model} not implemented. Please choose from the following: [Transformer] [LSTM] [MLP]")
         assert(False)

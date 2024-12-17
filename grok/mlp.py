@@ -32,9 +32,9 @@ from grok.transformer import Embedding, Linear
 DEFAULT_LOG_DIR = "logs"
 
 
-class TrainableLSTM(LightningModule):
+class TrainableMLP(LightningModule):
     """
-    Adds training methods to train a generic LSTM on arithmetic equations
+    Adds training methods to train a generic MLP on arithmetic equations
     """
 
     def __init__(self, hparams: Namespace) -> None:
@@ -45,22 +45,27 @@ class TrainableLSTM(LightningModule):
         super().__init__()
         self.save_hyperparameters(hparams)
         self.prepare_data()
+        
+        self.context_len = 6
+        self.vocab_size = len(self.train_dataset.tokenizer)
+        
+        hidden_1, hidden_2 = 512, 256
 
-        # input size: d_model, output size: d_model
-        self.lstm = torch.nn.LSTM(
-            input_size=hparams.d_model,
-            hidden_size=hparams.d_model,
-            dropout=hparams.dropout,
-            num_layers=hparams.n_layers,
-            batch_first=True
+        # input size: d_model * context_len, output size: vocab_size
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Flatten(),
+            torch.nn.Linear(hparams.d_model * self.context_len, hidden_1),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_1, hidden_2),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_2, self.vocab_size),
+            # torch.nn.Softmax(dim=1)
         )
         
-        self.vocab_len = len(self.train_dataset.tokenizer)
-        
-        self.linear = Linear(hparams.d_model, self.vocab_len, bias=False, weight_noise=hparams.weight_noise) # linear: d_model \to vocab_len
+        # self.linear = Linear(hparams.d_model, self.vocab_size, bias=False, weight_noise=hparams.weight_noise)
         
         self.embedding = Embedding(
-            self.vocab_len, 
+            self.vocab_size, 
             hparams.d_model, 
             weight_noise=hparams.weight_noise
         )
@@ -287,9 +292,9 @@ class TrainableLSTM(LightningModule):
         # print("enter func: _accuracy")
         
         # find max prediction from output
-        y_hat = torch.max(y_hat, dim=-2).indices  # batchsize x num_rhs_tokens
-        row_accuracy = torch.min((y_hat == y), dim=-1).values  # shape: batchsize
-        accuracy = row_accuracy.float() * 100  # shape: batchsize
+        y_hat = torch.max(y_hat, dim=-1).indices  # shape: batchsize
+        # row_accuracy = torch.min((y_hat == y), dim=-1).values  # shape: batchsize
+        accuracy = (y_hat == y).float() * 100  # shape: batchsize
         return accuracy
 
     def _step(
@@ -320,22 +325,27 @@ class TrainableLSTM(LightningModule):
         x = batch["text"]  # shape = batchsize * context_len
         y = batch["target"]  # shape = batchsize * context_len
         
-        y_hat = self(x) # shape = batchsize * context_len * vocab_size
+        print(x)
+        print(y)
         
-        y_hat = y_hat.transpose(-2, -1)  # shape = batchsize * vocab_size * context_len
-
         # Note: each sample must have exactly one '=' and all of them must
         # have it in the same position.
         eq_token_index = self.train_dataset.tokenizer.stoi["="]
         eq_position_t = torch.nonzero(y[0, :] == eq_token_index, as_tuple=False)
         eq_position = int(eq_position_t.squeeze())
+        
+        # LHS of x
+        x_lhs = x[..., : eq_position + 1] # batchsize * 4
+        
+        y_hat = self(x) # shape = batchsize * vocab_size
+        
+        # y_hat = y_hat.transpose(-2, -1)  # shape = batchsize * vocab_size * context_len
+
 
         # only calculate loss/accuracy on right hand side of the equation
-        y_rhs = y[..., eq_position + 1 :] # batchsize * 2
-        y_hat_rhs = y_hat[..., eq_position + 1 :] # batchsize * vocab_size * 2
+        y_rhs = y[..., eq_position + 1] # batchsize
+        y_hat_rhs = y_hat # batchsize * vocabsize
         
-        
-        x_lhs = x[..., : eq_position + 1] # batchsize * 4
 
         if train:
             coeff = float(batch["target"].shape[0]) / len(self.train_dataset)
@@ -347,6 +357,7 @@ class TrainableLSTM(LightningModule):
             acc = self._accuracy(y_hat_rhs, y_rhs)
             if reduction == "mean":
                 acc = acc.mean()
+            
 
         """
         device = self.embedding.weight.device
@@ -757,11 +768,10 @@ class TrainableLSTM(LightningModule):
 
         return {"test_loss": loss, "log": logs}
 
-    def forward(self, x) -> Any: # x.shape = batchsize * context_len
-        """Passes all arguments directly to LSTM.forward()"""
-        x = self.embedding(x) # x.shape = batchsize * context_len * d_model
+    def forward(self, x) -> Any:
+        """Passes all arguments directly to MLP.forward()"""
         
-        output, _ = self.lstm(x) # output.shape = batchsize * context_len * d_model
+        x = self.embedding(x)
+        output = self.mlp(x)
         
-        y = self.linear(output) # y.shape = batchsize * context_len * vocab_size
-        return y
+        return output

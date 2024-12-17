@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
+################################################################################
+# When you use this script to create the grokking curve, please first make sure that you put all logs in the same directory.
+# For example, if you have your logs in ./lightning_logs/addition_50%_Transformer, then you should run 
+# python .\scripts\visualize_metrics.py -i ./lightning_logs/addition_50%_Transformer -o ./output --model Transformer
+# It is OK to have sub-dirs such as version_0, version_1 in that directory, and the important thing is that they should be **consistent** (with the same training fraction, model..., and with no overlap in epochs/steps)
+################################################################################
 import csv
 import json
 import logging
@@ -35,6 +41,11 @@ parser.add_argument(
     type=str,
     required=True,
 )
+# parser.add_argument(
+#     "--model",
+#     type=str,
+#     required=True
+# )
 parser = grok.training.add_args(parser)
 args = parser.parse_args()
 print(args, flush=True)
@@ -555,6 +566,7 @@ def get_train_percentage(metric_data):
 
 
 rundir = args.input_dir
+model_name = args.model
 
 try:
     metric_data = load_run_metrics(rundir, args)
@@ -570,48 +582,54 @@ try:
     train_pct = get_train_percentage(metric_data)
     print(f"training data percentage = {train_pct}%")
     
-    create_grokking_curves(metric_data, operation, train_pct, model_name="Transfomer", by="step")
+    if not (model_name == "Transformer" or model_name == "LSTM"):
+        print("model name = [Transformer] [LSTM] [MLP]")
+        assert(False)
+        
+    print(f"model name = {model_name}")
+    
+    create_grokking_curves(metric_data, operation, train_pct, model_name=model_name, by="step")
 
-    for by in ["step", "epoch"]:
-        create_loss_curves(metric_data, arch, operation, by=by)
+    # for by in ["step", "epoch"]:
+    #     create_loss_curves(metric_data, arch, operation, by=by)
 
-    by = "epoch"
-    last_i = -1
-    for i in sorted(list(set(2 ** (np.arange(167) / 10)))):
-        if i > max_epochs:
-            break
-        i = int(round(i))
-        create_max_accuracy_curves(
-            metric_data,
-            arch,
-            operation,
-            by=by,
-            max_increment=i,
-        )
+    # by = "epoch"
+    # last_i = -1
+    # for i in sorted(list(set(2 ** (np.arange(167) / 10)))):
+    #     if i > max_epochs:
+    #         break
+    #     i = int(round(i))
+    #     create_max_accuracy_curves(
+    #         metric_data,
+    #         arch,
+    #         operation,
+    #         by=by,
+    #         max_increment=i,
+    #     )
 
-    # make a video
-    in_files = os.path.join(
-        args.output_dir,
-        "max_accuracy",
-        f"{operation}_max_accuracy_{arch}_upto_%*.png",
-    )
-    out_file = os.path.join(args.output_dir, f"{operation}_{arch}_max_accuracy.mp4")
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-r",
-        "16",
-        "-i",
-        in_files,
-        "-vcodec",
-        "libx264",
-        "-crf",
-        "25",
-        "-pix_fmt",
-        "yuv420p",
-        out_file,
-    ]
-    subprocess.check_call(cmd)
+    # # make a video
+    # in_files = os.path.join(
+    #     args.output_dir,
+    #     "max_accuracy",
+    #     f"{operation}_max_accuracy_{arch}_upto_%*.png",
+    # )
+    # out_file = os.path.join(args.output_dir, f"{operation}_{arch}_max_accuracy.mp4")
+    # cmd = [
+    #     "ffmpeg",
+    #     "-y",
+    #     "-r",
+    #     "16",
+    #     "-i",
+    #     in_files,
+    #     "-vcodec",
+    #     "libx264",
+    #     "-crf",
+    #     "25",
+    #     "-pix_fmt",
+    #     "yuv420p",
+    #     out_file,
+    # ]
+    # subprocess.check_call(cmd)
 
 except BaseException as e:
     print(f"{rundir} failed: {e}")
