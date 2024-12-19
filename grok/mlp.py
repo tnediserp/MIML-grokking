@@ -49,20 +49,20 @@ class TrainableMLP(LightningModule):
         self.context_len = 6
         self.vocab_size = len(self.train_dataset.tokenizer)
         
-        hidden_1, hidden_2 = 512, 256
-
-        # input size: d_model * context_len, output size: vocab_size
-        self.mlp = torch.nn.Sequential(
-            torch.nn.Flatten(),
-            torch.nn.Linear(2 * self.vocab_size, hidden_1),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_1, hidden_2),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_2, self.vocab_size),
-            # torch.nn.Softmax(dim=1)
-        )
+        hidden_size = 256
+        num_layers = 3
         
-        # self.linear = Linear(hparams.d_model, self.vocab_size, bias=False, weight_noise=hparams.weight_noise)
+        layers = []
+        current_size = 2 * self.vocab_size
+        for _ in range(num_layers):
+            layers.append(nn.Linear(current_size, hidden_size))
+            layers.append(nn.ReLU())
+            layers.append(nn.Dropout(hparams.dropout))
+            current_size = hidden_size
+        
+        layers.append(nn.Linear(hidden_size, self.vocab_size))
+        
+        self.mlp = nn.Sequential(*layers)
         
         self.embedding = Embedding(
             self.vocab_size, 
@@ -101,7 +101,7 @@ class TrainableMLP(LightningModule):
         parser.add_argument("--n_layers", type=int, default=2)
         parser.add_argument("--n_heads", type=int, default=4)
         parser.add_argument("--d_model", type=int, default=128)
-        parser.add_argument("--dropout", type=float, default=0.0)
+        parser.add_argument("--dropout", type=float, default=0.1)
         parser.add_argument("--weight_noise", type=float, default=0.0)
         parser.add_argument("--non_linearity", type=str, default="relu")
         parser.add_argument("--max_context_len", type=int, default=50)
@@ -120,7 +120,7 @@ class TrainableMLP(LightningModule):
         parser.set_defaults(anneal_lr=False)
 
         parser.add_argument("--max_lr", type=float, default=1e-3)
-        parser.add_argument("--weight_decay", type=float, default=0)
+        parser.add_argument("--weight_decay", type=float, default=1)
         parser.add_argument("--weight_decay_kind", type=str, default="to_zero")
         parser.add_argument("--noise_factor", type=float, default=0)
 
@@ -250,6 +250,11 @@ class TrainableMLP(LightningModule):
         """
         # print("enter func: configure_optimizers")
         
+        # optimizer = torch.optim.Adam(self.parameters(), 
+        #                              lr=1, 
+        #                              weight_decay=self.hparams.weight_decay,
+        #                              )
+        
         optimizer = CustomAdamW(
             self.parameters(),
             betas=(0.9, 0.98),
@@ -371,6 +376,9 @@ class TrainableMLP(LightningModule):
         else:
             coeff = float(batch["target"].shape[0]) / len(self.val_dataset)
         loss = F.cross_entropy(y_hat_rhs, y_rhs, reduction=reduction)
+        
+        if loss.item() == 0:
+            print(f"y_hat = {y_hat}")
 
         with torch.no_grad():
             acc = self._accuracy(y_hat_rhs, y_rhs)
@@ -592,6 +600,9 @@ class TrainableMLP(LightningModule):
                 
                 perplexity = torch.exp(loss)
                 accuracy = torch.stack([x["partial_train_accuracy"] for x in outputs]).sum()
+                
+            print(f"train acc = {accuracy}")
+            print(f"loss = {loss}")
 
             # Learning rate
             first_lr = outputs[0]["learning_rate"]
@@ -789,8 +800,7 @@ class TrainableMLP(LightningModule):
 
     def forward(self, x) -> Any:
         """Passes all arguments directly to MLP.forward()"""
-        # x = self.embedding(x)
-        
+        x = x.view(x.size(0), -1)
         output = self.mlp(x)
         
         return output
