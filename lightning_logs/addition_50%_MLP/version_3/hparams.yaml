@@ -13,7 +13,7 @@ math_operator: +
 max_context_len: 50
 max_epochs: null
 max_lr: 0.001
-max_steps: 100000
+max_steps: 1000000
 model: MLP
 n_heads: 4
 n_layers: 2
@@ -25,6 +25,6 @@ save_activations: false
 save_outputs: false
 train_data_pct: 50
 warmup_steps: 10
-weight_decay: 0
+weight_decay: 0.01
 weight_decay_kind: to_zero
 weight_noise: 0.0

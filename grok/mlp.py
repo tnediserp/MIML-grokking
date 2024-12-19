@@ -376,9 +376,6 @@ class TrainableMLP(LightningModule):
         else:
             coeff = float(batch["target"].shape[0]) / len(self.val_dataset)
         loss = F.cross_entropy(y_hat_rhs, y_rhs, reduction=reduction)
-        
-        if loss.item() == 0:
-            print(f"y_hat = {y_hat}")
 
         with torch.no_grad():
             acc = self._accuracy(y_hat_rhs, y_rhs)
@@ -600,9 +597,6 @@ class TrainableMLP(LightningModule):
                 
                 perplexity = torch.exp(loss)
                 accuracy = torch.stack([x["partial_train_accuracy"] for x in outputs]).sum()
-                
-            print(f"train acc = {accuracy}")
-            print(f"loss = {loss}")
 
             # Learning rate
             first_lr = outputs[0]["learning_rate"]
@@ -734,6 +728,8 @@ class TrainableMLP(LightningModule):
             == self.current_epoch
             or int(2 ** (int(np.log(self.current_epoch + 1) / np.log(2))))
             == self.current_epoch + 1
+            or self.current_epoch % 100000 == 0
+            or self.current_epoch % 100000 == 1
             )
         ):
             self.trainer.save_checkpoint(
