@@ -98,6 +98,9 @@ class TrainableMLP(LightningModule):
             help="-1 -> entire dataset, 0 -> auto-calculate, 0<N<1 -> fraction of dataset, N>1 -> N",
         )
 
+
+        parser.add_argument("--max_epochs", type=int, default=None)
+        parser.add_argument("--max_steps", type=int, default=50000)
         parser.add_argument("--n_layers", type=int, default=2)
         parser.add_argument("--n_heads", type=int, default=4)
         parser.add_argument("--d_model", type=int, default=128)

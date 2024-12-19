@@ -254,12 +254,20 @@ def add_args(parser=None) -> Namespace:
         parser = ArgumentParser()
     parser.add_argument("--random_seed", type=int, default=-1)
     parser.add_argument("--gpu", type=int, default=0)
-    parser.add_argument("--max_epochs", type=int, default=None)
-    parser.add_argument("--max_steps", type=int, default=2000000)
     # parser.add_argument("--load_ckpt", dest="load_ckpt", action="store_true")
     # parser.set_defaults(load_ckpt=False)
     parser.add_argument("--ckpt_epoch", type=str, default="0")
     parser.add_argument("--model", type=str, default="Transformer")
     # parser.add_argument("--checkpoint_period", type=int, default=1)
-    parser = TrainableTransformer.add_model_specific_args(parser)
+    
+    model_name = parser.parse_args().model
+    if model_name == "Transformer":
+        parser = TrainableTransformer.add_model_specific_args(parser) 
+    elif model_name == "LSTM":
+        parser = TrainableLSTM.add_model_specific_args(parser) 
+    elif model_name == "MLP":
+        parser = TrainableMLP.add_model_specific_args(parser) 
+    else:
+        print(f"Model {model_name} not implemented.")
+        assert(False)
     return parser
