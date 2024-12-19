@@ -46,21 +46,20 @@ class TrainableLSTM(LightningModule):
         self.save_hyperparameters(hparams)
         self.prepare_data()
 
+        self.vocab_size = len(self.train_dataset.tokenizer)
+        
         # input size: d_model, output size: d_model
         self.lstm = torch.nn.LSTM(
-            input_size=hparams.d_model,
-            hidden_size=hparams.d_model,
+            input_size=self.vocab_size,
+            hidden_size=hparams.d_model, # 128
             dropout=hparams.dropout,
             num_layers=hparams.n_layers,
             batch_first=True
         )
-        
-        self.vocab_len = len(self.train_dataset.tokenizer)
-        
-        self.linear = Linear(hparams.d_model, self.vocab_len, bias=False, weight_noise=hparams.weight_noise) # linear: d_model \to vocab_len
+        self.fc = torch.nn.Linear(hparams.d_model, self.vocab_size) # linear: d_model \to vocab_len
         
         self.embedding = Embedding(
-            self.vocab_len, 
+            self.vocab_size, 
             hparams.d_model, 
             weight_noise=hparams.weight_noise
         )
@@ -284,13 +283,30 @@ class TrainableLSTM(LightningModule):
                   equation in the batch
         :returns: the fraction of equations correctly answered
         """
-        # print("enter func: _accuracy")
-        
         # find max prediction from output
-        y_hat = torch.max(y_hat, dim=-2).indices  # batchsize x num_rhs_tokens
-        row_accuracy = torch.min((y_hat == y), dim=-1).values  # shape: batchsize
-        accuracy = row_accuracy.float() * 100  # shape: batchsize
+        y_hat = torch.max(y_hat, dim=-1).indices  # shape: batchsize
+        # row_accuracy = torch.min((y_hat == y), dim=-1).values  # shape: batchsize
+        accuracy = (y_hat == y).float() * 100  # shape: batchsize
         return accuracy
+    
+    def one_hot_encoder(self, equation: Tensor, num_classes: int):
+        """
+        given a (encoded) equation a + b = c, encode the inputs as one-hot vectors (e_a, e_b), where the dimensions of e_a, e_b is num_classes.
+        return a tensor onehot_x, of size 2 * num_classes
+        """
+        # find the position of "+"
+        add_token_index = self.train_dataset.tokenizer.stoi["+"]
+        add_position_t = torch.nonzero(equation[0, :] == add_token_index, as_tuple=False)
+        add_position = int(add_position_t.squeeze())
+        
+        # for the equation a + b = c, encode the inputs as one-hot vectors (e_a, e_b), where the dimensions of e_a, e_b is num_classes.
+        num_a = equation[..., add_position - 1] # shape = batchsize
+        num_b = equation[..., add_position + 1] # shape = batchsize
+        onehot_a = F.one_hot(num_a, num_classes) # shape = batcsize * num_classes
+        onehot_b = F.one_hot(num_b, num_classes) # shape = batchsize * num_classes
+        onehot_x = torch.stack([onehot_a, onehot_b], dim=-2).float() # shape = batchsize * 2 * num_classes
+        
+        return onehot_x
 
     def _step(
         self,
@@ -320,9 +336,10 @@ class TrainableLSTM(LightningModule):
         x = batch["text"]  # shape = batchsize * context_len
         y = batch["target"]  # shape = batchsize * context_len
         
-        y_hat = self(x) # shape = batchsize * context_len * vocab_size
+        onehot_x = self.one_hot_encoder(x, self.vocab_size)
         
-        y_hat = y_hat.transpose(-2, -1)  # shape = batchsize * vocab_size * context_len
+        y_hat = self(onehot_x) # shape = batchsize * vocab_size
+        
 
         # Note: each sample must have exactly one '=' and all of them must
         # have it in the same position.
@@ -331,8 +348,8 @@ class TrainableLSTM(LightningModule):
         eq_position = int(eq_position_t.squeeze())
 
         # only calculate loss/accuracy on right hand side of the equation
-        y_rhs = y[..., eq_position + 1 :] # batchsize * 2
-        y_hat_rhs = y_hat[..., eq_position + 1 :] # batchsize * vocab_size * 2
+        y_rhs = y[..., eq_position + 1] # batchsize
+        y_hat_rhs = y_hat # batchsize * vocab_size
         
         
         x_lhs = x[..., : eq_position + 1] # batchsize * 4
@@ -757,11 +774,10 @@ class TrainableLSTM(LightningModule):
 
         return {"test_loss": loss, "log": logs}
 
-    def forward(self, x) -> Any: # x.shape = batchsize * context_len
+    def forward(self, x) -> Any: # x.shape = batchsize * 2 * vocab_size
         """Passes all arguments directly to LSTM.forward()"""
-        x = self.embedding(x) # x.shape = batchsize * context_len * d_model
+        _, (h_n, _) = self.lstm(x)
+        h_n = h_n[-1, :, :]
         
-        output, _ = self.lstm(x) # output.shape = batchsize * context_len * d_model
-        
-        y = self.linear(output) # y.shape = batchsize * context_len * vocab_size
-        return y
+        output = self.fc(h_n.squeeze(0))
+        return output
