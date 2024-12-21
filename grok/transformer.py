@@ -383,16 +383,18 @@ class Transformer(nn.Module):
         ]
 
         # Decode
-        x = self.embed(x)
+        x = self.embed(x) # shape = (batchsize, 2, d_model)
         decoded, attentions, values = self.decoder(
             x, self_attn_mask, save_activations=save_activations
         )
+        
+        pooled = decoded.mean(dim=-2)  # Pooling across sequence dimension. shape = (batchsize, d_model)
 
         # Return predictions for specific token
         if pos is not None:
             decoded = decoded[:, pos, :]
 
-        y_hat = self.linear(decoded)
+        y_hat = self.linear(pooled)
         return y_hat, attentions, values
 
 
@@ -416,7 +418,7 @@ class TrainableTransformer(LightningModule):
             hparams.d_model,
             hparams.dropout,
             hparams.max_context_len,
-            len(self.train_dataset.tokenizer),
+            len(self.train_dataset.tokenizer), # vocab_len
             hparams.non_linearity,
             weight_noise=self.hparams.weight_noise,
         )
@@ -454,7 +456,7 @@ class TrainableTransformer(LightningModule):
         parser.add_argument("--n_layers", type=int, default=2)
         parser.add_argument("--n_heads", type=int, default=4)
         parser.add_argument("--d_model", type=int, default=128)
-        parser.add_argument("--dropout", type=float, default=0.0)
+        parser.add_argument("--dropout", type=float, default=0.1)
         parser.add_argument("--weight_noise", type=float, default=0.0)
         parser.add_argument("--non_linearity", type=str, default="relu")
         parser.add_argument("--max_context_len", type=int, default=50)
@@ -473,7 +475,7 @@ class TrainableTransformer(LightningModule):
         parser.set_defaults(anneal_lr=False)
 
         parser.add_argument("--max_lr", type=float, default=1e-3)
-        parser.add_argument("--weight_decay", type=float, default=0.01)
+        parser.add_argument("--weight_decay", type=float, default=1)
         parser.add_argument("--weight_decay_kind", type=str, default="to_zero")
         parser.add_argument("--noise_factor", type=float, default=0)
 
@@ -645,10 +647,28 @@ class TrainableTransformer(LightningModule):
         # print("enter func: _accuracy")
         
         # find max prediction from output
-        y_hat = torch.max(y_hat, dim=-2).indices  # batchsize x num_rhs_tokens
-        row_accuracy = torch.min((y_hat == y), dim=-1).values  # shape: batchsize
-        accuracy = row_accuracy.float() * 100  # shape: batchsize
+        y_hat = torch.max(y_hat, dim=-1).indices  # shape: batchsize
+        # row_accuracy = torch.min((y_hat == y), dim=-1).values  # shape: batchsize
+        accuracy = (y_hat == y).float() * 100  # shape: batchsize
         return accuracy
+    
+    def index_extractor(self, equation: Tensor):
+        """
+        Given a equation "a + b = c", extract [index(a), index(b)]
+        Note: only implemented for 2-wise addition
+        """
+        # find the position of "+"
+        add_token_index = self.train_dataset.tokenizer.stoi["+"]
+        add_position_t = torch.nonzero(equation[0, :] == add_token_index, as_tuple=False)
+        add_position = int(add_position_t.squeeze())
+        
+        # obtain the indices of a and b
+        num_a = equation[..., add_position - 1] # shape = batchsize
+        num_b = equation[..., add_position + 1] # shape = batchsize
+        
+        indices = torch.stack((num_a, num_b), dim=1)
+        
+        return indices
 
     def _step(
         self,
@@ -677,10 +697,14 @@ class TrainableTransformer(LightningModule):
         
         x = batch["text"]  # shape = batchsize * context_len
         y = batch["target"]  # shape = batchsize * context_len
+        
+        indices_x = self.index_extractor(x) # batchsize * 2
+        
         y_hat, attentions, values = self(
-            x=x, save_activations=self.hparams.save_activations  # type: ignore
-        )  # shape = batchsize * context_len * vocab_size
-        y_hat = y_hat.transpose(-2, -1)  # shape = batchsize * vocab_size * context_len
+            x=indices_x, save_activations=self.hparams.save_activations  # type: ignore
+        )  # shape = batchsize * vocab_size
+        
+        # y_hat = y_hat.transpose(-2, -1)  # shape = batchsize * vocab_size
 
         # Note: each sample must have exactly one '=' and all of them must
         # have it in the same position.
@@ -689,9 +713,10 @@ class TrainableTransformer(LightningModule):
         eq_position = int(eq_position_t.squeeze())
 
         # only calculate loss/accuracy on right hand side of the equation
-        y_rhs = y[..., eq_position + 1 :]
-        y_hat_rhs = y_hat[..., eq_position + 1 :]
+        y_rhs = y[..., eq_position + 1]
+        y_hat_rhs = y_hat
         x_lhs = x[..., : eq_position + 1]
+        
 
         if train:
             coeff = float(batch["target"].shape[0]) / len(self.train_dataset)
