@@ -6,7 +6,7 @@ ckpt_epoch: '0'
 d_key: 32.0
 d_model: 128
 datadir: /root/autodl-tmp/MIML-grokking/data
-dropout: 0.0
+dropout: 0.1
 gpu: 0
 logdir: /root/autodl-tmp/MIML-grokking
 math_operator: +
@@ -25,6 +25,6 @@ save_activations: false
 save_outputs: false
 train_data_pct: 50
 warmup_steps: 10
-weight_decay: 0
+weight_decay: 0.1
 weight_decay_kind: to_zero
 weight_noise: 0.0
