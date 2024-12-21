@@ -1,6 +1,7 @@
 # PKU MIML Course Project: Grokking
 
 ## News (updated)
+- Grokking is produced for Transformer (converges in $5 \times 10^4$ steps). The grokking curve looks nice.
 - Grokking is produced for LSTM (converges in $10^5$ steps with default hparams. If you want it to converge faster, increase the weight decay, e.g. to $1.0$.)
 - Grokking is produced for MLP (It converges in $\approx 5 \times 10^4$ steps, i.e., $10^4$ epochs.)
 - Please pay attention to the file structure. Each model is now implemented in a separate file. E.g., MLP is implemented in `./grok/mlp.py`.
