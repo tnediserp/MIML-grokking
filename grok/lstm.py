@@ -97,7 +97,7 @@ class TrainableLSTM(LightningModule):
         parser.add_argument("--n_layers", type=int, default=2)
         parser.add_argument("--n_heads", type=int, default=4)
         parser.add_argument("--d_model", type=int, default=128)
-        parser.add_argument("--dropout", type=float, default=0.0)
+        parser.add_argument("--dropout", type=float, default=0.1)
         parser.add_argument("--weight_noise", type=float, default=0.0)
         parser.add_argument("--non_linearity", type=str, default="relu")
         parser.add_argument("--max_context_len", type=int, default=50)
@@ -116,7 +116,7 @@ class TrainableLSTM(LightningModule):
         parser.set_defaults(anneal_lr=False)
 
         parser.add_argument("--max_lr", type=float, default=1e-3)
-        parser.add_argument("--weight_decay", type=float, default=0.01)
+        parser.add_argument("--weight_decay", type=float, default=1)
         parser.add_argument("--weight_decay_kind", type=str, default="to_zero")
         parser.add_argument("--noise_factor", type=float, default=0)
 
