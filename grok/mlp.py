@@ -123,7 +123,7 @@ class TrainableMLP(LightningModule):
         parser.set_defaults(anneal_lr=False)
 
         parser.add_argument("--max_lr", type=float, default=1e-3)
-        parser.add_argument("--weight_decay", type=float, default=1)
+        parser.add_argument("--weight_decay", type=float, default=0.1)
         parser.add_argument("--weight_decay_kind", type=str, default="to_zero")
         parser.add_argument("--noise_factor", type=float, default=0)
 
