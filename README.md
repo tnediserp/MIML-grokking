@@ -23,6 +23,13 @@ When you are working on a file or modified some codes, please inform us in the W
 
 Implementing experiments in the paper [Grokking: Generalization Beyond Overfitting on Small Algorithmic Datasets](https://arxiv.org/abs/2201.02177) by Alethea Power, Yuri Burda, Harri Edwards, Igor Babuschkin, and Vedant Misra.
 
+### Related research papers
+Search via DBLP/scholar
+- Towards Understanding Grokking: An Effective Theory of Representation Learning. [[conference](http://papers.nips.cc/paper_files/paper/2022/hash/dfc310e81992d2e4cedc09ac47eff13e-Abstract-Conference.html)] [[arxiv](https://doi.org/10.48550/arXiv.2205.10343)]
+- Progress measures for grokking via mechanistic interpretability. [[conference](https://openreview.net/forum?id=9XFSbDPmdW)] [[arxiv](https://doi.org/10.48550/arXiv.2301.05217)]
+- Why Do You Grok? A Theoretical Analysis on Grokking Modular Addition. [[conference](https://openreview.net/forum?id=ad5I6No9G1)] [[arxiv](https://doi.org/10.48550/arXiv.2407.12332)]
+- Grokking as a First Order Phase Transition in Two Layer Networks. [[conference](https://openreview.net/forum?id=3ROGsTX3IR)] [[arxiv](https://doi.org/10.48550/arXiv.2310.03789)]
+
 ## Installation and Training
 
 ```bash
