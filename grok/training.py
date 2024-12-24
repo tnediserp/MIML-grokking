@@ -260,7 +260,9 @@ def add_args(parser=None) -> Namespace:
     parser.add_argument("--model", type=str, default="Transformer")
     # parser.add_argument("--checkpoint_period", type=int, default=1)
     
-    model_name = parser.parse_args().model
+    args = parser.parse_args([])
+    
+    model_name = args.model
     if model_name == "Transformer":
         parser = TrainableTransformer.add_model_specific_args(parser) 
     elif model_name == "LSTM":
@@ -270,4 +272,7 @@ def add_args(parser=None) -> Namespace:
     else:
         print(f"Model {model_name} not implemented.")
         assert(False)
+        
+    args = parser.parse_args()
+    
     return parser
