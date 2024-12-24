@@ -1,6 +1,202 @@
 import torch
 import math
 
+class CustomSGD(torch.optim.Optimizer):
+    def __init__(
+        self,
+        params,
+        lr = 1e-3,
+        momentum = 0,
+        dampening = 0,
+        weight_decay = 0,
+        nesterov = False,
+    ):
+        if lr < 0.0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if momentum < 0.0:
+            raise ValueError(f"Invalid momentum value: {momentum}")
+        if nesterov and (momentum <= 0 or dampening != 0):
+            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
+        if weight_decay < 0.0:
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+
+        defaults = dict(
+            lr=lr,
+            momentum=momentum,
+            dampening=dampening,
+            weight_decay=weight_decay,
+            nesterov=nesterov,
+        )
+
+        super(CustomSGD, self).__init__(params, defaults)
+
+    def __setstate__(self, state):  # noqa: D105
+        super(CustomSGD, self).__setstate__(state)
+        for group in self.param_groups:
+            group.setdefault("nesterov", False)
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        """Perform a single optimization step.
+    
+        Args:
+            closure (Callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            loss = closure()
+    
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+                grad = p.grad
+                if grad.is_sparse:
+                    raise RuntimeError('CustomSGD does not support sparse gradients')
+    
+                state = self.state[p]
+    
+                # State initialization
+                if len(state) == 0:
+                    state['step'] = 0
+                    state['momentum_buffer'] = torch.zeros_like(p.data)
+    
+                momentum_buffer = state['momentum_buffer']
+                momentum = group["momentum"]
+    
+                # Perform optimization step
+                if group['weight_decay'] != 0:
+                    grad.add_(p, alpha=group['weight_decay'])
+                    
+                if momentum != 0:
+                    buf = momentum_buffer
+
+                    if buf is None:
+                        buf = torch.clone(grad).detach()
+                        momentum_buffer = buf
+                    else:
+                        buf.mul_(momentum).add_(grad, alpha=1 - group['dampening'])
+
+                    if group['nesterov']:
+                        grad = grad.add(buf, alpha=momentum)
+                    else:
+                        grad = buf
+    
+                p.add_(grad, alpha=-group['lr'])
+    
+                # Update the momentum buffer
+                state['momentum_buffer'] = momentum_buffer
+    
+        return loss
+
+
+class CustomRMSprop(torch.optim.Optimizer):
+    def __init__(
+        self,
+        params,
+        lr = 1e-2,
+        alpha = 0.99,
+        eps = 1e-8,
+        weight_decay = 0,
+        momentum = 0,
+        centered=False,
+    ):
+        if not 0.0 <= lr:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if not 0.0 <= eps:
+            raise ValueError(f"Invalid epsilon value: {eps}")
+        if not 0.0 <= momentum:
+            raise ValueError(f"Invalid momentum value: {momentum}")
+        if not 0.0 <= weight_decay:
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+        if not 0.0 <= alpha:
+            raise ValueError(f"Invalid alpha value: {alpha}")
+
+        defaults = dict(
+            lr=lr,
+            momentum=momentum,
+            alpha=alpha,
+            eps=eps,
+            centered=centered,
+            weight_decay=weight_decay,
+        )
+        super().__init__(params, defaults)
+
+    def __setstate__(self, state):  # noqa: D105
+        super().__setstate__(state)
+        for group in self.param_groups:
+            group.setdefault("momentum", 0)
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        """Perform a single optimization step.
+
+        Args:
+            closure (Callable, optional): A closure that reevaluates the model
+                and returns the loss.
+        """
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+
+                # Perform optimization step
+                grad = p.grad
+
+                if p.grad.is_sparse:
+                    raise RuntimeError("RMSprop does not support sparse gradients")
+
+                state = self.state[p]
+                # State initialization
+                if len(state) == 0:
+                    state["step"] = 0
+                    state["square_avg"] = torch.zeros_like(
+                        p, memory_format=torch.preserve_format
+                    )
+                    if group["momentum"] > 0:
+                        state["momentum_buffer"] = torch.zeros_like(
+                            p, memory_format=torch.preserve_format
+                        )
+                    if group["centered"]:
+                        state["grad_avg"] = torch.zeros_like(
+                            p, memory_format=torch.preserve_format
+                        )
+
+                centered=group["centered"]
+                square_avg = state["square_avg"]
+                momentum = group["momentum"]
+                state["step"] += 1
+
+                if group["weight_decay"] != 0:
+                    grad = grad.add(p, alpha=group["weight_decay"])
+
+                square_avg.mul_(group["alpha"]).addcmul_(grad, grad, value=1 - group["alpha"])
+
+                if centered:
+                    grad_avg = state["grad_avg"]
+                    grad_avg.lerp_(grad, 1 - group["alpha"])
+                    avg = square_avg.addcmul(grad_avg, grad_avg, value=-1).sqrt_()
+                else:
+                    avg = square_avg.sqrt()
+
+                    avg = avg.add_(group["eps"])
+
+                if momentum > 0:
+                    buf = state["momentum_buffer"]
+                    buf.mul_(momentum).addcdiv_(grad, avg)
+                    p.add_(buf, alpha=-group["lr"])
+                else:
+                    p.addcdiv_(grad, avg, value=-group["lr"])
+
+        return loss
+
+
 class CustomAdamW(torch.optim.Optimizer):
     def __init__(
         self,

@@ -26,7 +26,7 @@ from grok.data import (
     ArithmeticDataset,
     ArithmeticIterator,
 )
-from grok.optimizer import CustomAdamW
+from grok.optimizer import CustomSGD,CustomRMSprop,CustomAdamW
 
 DEFAULT_LOG_DIR = "logs"
 
@@ -497,6 +497,7 @@ class TrainableTransformer(LightningModule):
             default=DEFAULT_DATA_DIR,
         )
         parser.add_argument("--optimizer", type=str, default="AdamW")
+        # option: AdamW,SGD_with_Nesterov_momentum,RMSprop
 
         return parser
 
@@ -624,23 +625,32 @@ class TrainableTransformer(LightningModule):
             #     weight_decay=self.hparams.weight_decay
             # )
         
-        # optimizer = SAM(
-        #     self.parameters(),
-        #     base_optimizer=CustomAdamW,
-        #     rho=0.05,
-        #     betas=(0.9, 0.98),
-        #     eps=1e-8,
-        #     lr=1,
-        #     weight_decay=self.hparams.weight_decay,
-        #     noise_factor=self.hparams.noise_factor,
-        # )
         elif self.hparams.optimizer == "SGD":
-            optimizer = torch.optim.SGD(
+            optimizer = CustomSGD(
                 self.parameters(),
+                momentum = 0.9,
+                dampening = 0,
                 lr=1,
+                nesterov=True,
                 weight_decay=self.hparams.weight_decay, # When using SGD, we should set a small weight decay, e.g. 0
-                momentum=0.99,
-                nesterov=True
+            )
+            # optimizer = torch.optim.SGD(
+            #     self.parameters(),
+            #     lr=1,
+            #     weight_decay=self.hparams.weight_decay, # When using SGD, we should set a small weight decay, e.g. 0
+            #     momentum=0.99,
+            #     nesterov=True
+            # )
+        
+        elif self.hparams.optimizer == "RMSprop":
+            optimizer = CustomRMSprop(
+                self.parameters(),
+                lr = 1,
+                alpha = 0.99,
+                eps = 1e-8,
+                weight_decay=self.hparams.weight_decay, ## When using RMSprop, we should set a small weight decay, e.g. 0
+                momentum = 0,
+                centered=False,
             )
             
         elif self.hparams.optimizer == "Adam":
@@ -651,6 +661,17 @@ class TrainableTransformer(LightningModule):
                 weight_decay=self.hparams.weight_decay, # When using Adam, we should set a small weight decay, e.g. 0.001 or simply 0
                 betas=(0.9, 0.999)
             )
+            
+        # optimizer = SAM(
+        #     self.parameters(),
+        #     base_optimizer=CustomAdamW,
+        #     rho=0.05,
+        #     betas=(0.9, 0.98),
+        #     eps=1e-8,
+        #     lr=1,
+        #     weight_decay=self.hparams.weight_decay,
+        #     noise_factor=self.hparams.noise_factor,
+        # )
         
         
         else: 
