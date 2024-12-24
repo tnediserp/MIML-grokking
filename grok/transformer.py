@@ -652,21 +652,39 @@ class TrainableTransformer(LightningModule):
         accuracy = (y_hat == y).float() * 100  # shape: batchsize
         return accuracy
     
-    def index_extractor(self, equation: Tensor):
+    def index_extractor(self, equation: Tensor) -> Tensor:
         """
-        Given a equation "a + b = c", extract [index(a), index(b)]
-        Note: only implemented for 2-wise addition
+        Given an equation "a + b + ... + z = result", extract [index(a), index(b), ..., index(z)]
+        Note: implemented for k-wise addition where k >= 2
         """
-        # find the position of "+"
         add_token_index = self.train_dataset.tokenizer.stoi["+"]
-        add_position_t = torch.nonzero(equation[0, :] == add_token_index, as_tuple=False)
-        add_position = int(add_position_t.squeeze())
         
-        # obtain the indices of a and b
-        num_a = equation[..., add_position - 1] # shape = batchsize
-        num_b = equation[..., add_position + 1] # shape = batchsize
+        # Find positions of all "+" tokens in the equation
+        add_positions = torch.nonzero(equation[0, :] == add_token_index, as_tuple=False).squeeze()
+        # Ensure add_positions is at least 1-D tensor
+        if add_positions.dim() == 0:
+            add_positions = add_positions.unsqueeze(0)
+        if len(add_positions) < 1:
+            raise ValueError("Equation must contain at least one '+' token.")
         
-        indices = torch.stack((num_a, num_b), dim=1)
+        # Initialize a list to hold the indices of all operands
+        operand_indices = []
+
+        # Add the first operand before the first "+"
+        num_first = equation[..., add_positions[0] - 1]
+        operand_indices.append(num_first)
+
+        # Add operands between each pair of "+" tokens
+        for i in range(len(add_positions) - 1):
+            num_between = equation[..., add_positions[i] + 1]
+            operand_indices.append(num_between)
+        
+        # Add the last operand after the last "+"
+        num_last = equation[..., add_positions[-1] + 1]
+        operand_indices.append(num_last)
+
+        # Stack the operand indices into a tensor with shape (batch_size, k)
+        indices = torch.stack(operand_indices, dim=1)
         
         return indices
 
