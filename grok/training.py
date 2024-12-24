@@ -260,7 +260,7 @@ def add_args(parser=None) -> Namespace:
     parser.add_argument("--model", type=str, default="Transformer")
     # parser.add_argument("--checkpoint_period", type=int, default=1)
     
-    args = parser.parse_args([])
+    args, unknown = parser.parse_known_args()
     
     model_name = args.model
     if model_name == "Transformer":
