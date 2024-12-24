@@ -212,44 +212,19 @@ class ArithmeticDataset:
             tuples = itertools.product(elems, repeat=2)
         else:
             operands = operands or NUMS
-            tuples = itertools.product(operands, repeat=2)
-
+            #modify here to change addition number
+            tuples = itertools.product(operands, repeat=2) 
         # if operator == "s5":
         #     print("elems", list(elems))
         #     print("tuples", list(tuples))
         eqs = []
-        for a, b in tuples:
-            if operator == "/":
-                if b == 0:
-                    continue
-                else:
-                    c = a
-                    a = (b * c) % MODULUS
-            elif operator == "s5":
-                c = b[a]
-            elif operator == "s5conj":
-                c = a * b * (a.__invert__())
-            elif operator == "s5aba":
-                c = a * b * a
-            elif operator == "+*":
-                if a % 2 == 0:
-                    c = (a + b) % MODULUS
-                else:
-                    c = (a * b) % MODULUS
-            elif operator == "+-":
-                if a % 2 == 0:
-                    c = (a + b) % MODULUS
-                else:
-                    c = (a - b) % MODULUS
-            elif "_mod_" in operator:
-                expression = operator.split("_mod_")[0]
-                function = eval(f"lambda x, y: ({expression})")
-                c = function(a, b)
-            else:
-                c = eval(f"({a} {operator} {b}) % {MODULUS}")
-            eq = " ".join(map(render, [a, operator, b, "=", c]))
+        for nums in tuples:
+            # get result for eq
+            result = np.sum(nums)%MODULUS     
+            # construct "x1 + x2 + ... + xK = result"
+            operands_str = " + ".join(map(render, nums))
+            eq = f"{operands_str} = {render(result)}"
             eqs.append(eq)
-
         # if operator == "s5":
         #     print("eqs", eqs)
         return eqs
