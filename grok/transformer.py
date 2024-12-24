@@ -383,7 +383,7 @@ class Transformer(nn.Module):
         ]
 
         # Decode
-        x = self.embed(x) # shape = (batchsize, 2, d_model)
+        x = self.embed(x) # shape = (batchsize, K, d_model)
         decoded, attentions, values = self.decoder(
             x, self_attn_mask, save_activations=save_activations
         )
