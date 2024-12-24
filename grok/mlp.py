@@ -144,6 +144,7 @@ class TrainableMLP(LightningModule):
             type=str,
             default=DEFAULT_DATA_DIR,
         )
+        parser.add_argument("--optimizer", type=str, default="AdamW")
 
         return parser
 
@@ -252,21 +253,16 @@ class TrainableMLP(LightningModule):
         :returns: optimizers and schedulers.
         """
         # print("enter func: configure_optimizers")
-        
-        # optimizer = torch.optim.Adam(self.parameters(), 
-        #                              lr=1, 
-        #                              weight_decay=self.hparams.weight_decay,
-        #                              )
-        
-        optimizer = CustomAdamW(
-            self.parameters(),
-            betas=(0.9, 0.98),
-            eps=1e-8,
-            lr=1,
-            weight_decay=self.hparams.weight_decay,
-            noise_factor=self.hparams.noise_factor,
-            weight_decay_form=self.hparams.weight_decay_kind,
-        )
+        if self.hparams.optimizer == "AdamW":
+            optimizer = CustomAdamW(
+                self.parameters(),
+                betas=(0.9, 0.98),
+                eps=1e-8,
+                lr=1,
+                weight_decay=self.hparams.weight_decay,
+                noise_factor=self.hparams.noise_factor,
+                weight_decay_form=self.hparams.weight_decay_kind,
+            )
         # optimizer = SAM(
         #     self.parameters(),
         #     base_optimizer=CustomAdamW,
@@ -277,6 +273,18 @@ class TrainableMLP(LightningModule):
         #     weight_decay=self.hparams.weight_decay,
         #     noise_factor=self.hparams.noise_factor,
         # )
+        elif self.hparams.optimizer == "SGD":
+            optimizer = torch.optim.SGD(
+                self.parameters(),
+                lr=0.1,
+                weight_decay=self.hparams.weight_decay,
+                momentum=0
+            )
+        
+        else: 
+            print("Optimizer not defined.")
+            assert(False)
+        
         schedulers = [
             {
                 "scheduler": LambdaLR(optimizer, lr_lambda=self._scheduler_lr),
