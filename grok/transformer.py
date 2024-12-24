@@ -628,7 +628,7 @@ class TrainableTransformer(LightningModule):
         elif self.hparams.optimizer == "SGD":
             optimizer = torch.optim.SGD(
                 self.parameters(),
-                lr=1,
+                lr=0.1,
                 weight_decay=self.hparams.weight_decay,
                 momentum=0
             )
