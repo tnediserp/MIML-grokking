@@ -259,10 +259,19 @@ class TrainableMLP(LightningModule):
                 betas=(0.9, 0.98),
                 eps=1e-8,
                 lr=1,
-                weight_decay=self.hparams.weight_decay,
+                weight_decay=self.hparams.weight_decay, # When using AdamW, we should set a big weight decay, e.g. 0.1 or 1
                 noise_factor=self.hparams.noise_factor,
                 weight_decay_form=self.hparams.weight_decay_kind,
             )
+            
+            # optimizer = torch.optim.AdamW(
+            #     self.parameters(),
+            #     lr=1,
+            #     betas=(0.9, 0.98),
+            #     eps=1e-8,
+            #     weight_decay=self.hparams.weight_decay
+            # )
+        
         # optimizer = SAM(
         #     self.parameters(),
         #     base_optimizer=CustomAdamW,
@@ -276,10 +285,21 @@ class TrainableMLP(LightningModule):
         elif self.hparams.optimizer == "SGD":
             optimizer = torch.optim.SGD(
                 self.parameters(),
-                lr=0.1,
-                weight_decay=self.hparams.weight_decay,
-                momentum=0
+                lr=1,
+                weight_decay=self.hparams.weight_decay, # When using SGD, we should set a small weight decay, e.g. 0
+                momentum=0.99,
+                nesterov=True
             )
+            
+        elif self.hparams.optimizer == "Adam":
+            optimizer = torch.optim.Adam(
+                self.parameters(),
+                lr=1,
+                eps=1e-9,
+                weight_decay=self.hparams.weight_decay, # When using Adam, we should set a small weight decay, e.g. 0.001 or simply 0
+                betas=(0.9, 0.999)
+            )
+        
         
         else: 
             print("Optimizer not defined.")
