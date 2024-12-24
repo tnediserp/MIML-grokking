@@ -67,12 +67,15 @@ def load_generalization_steps(expt_dir):
         for row in reversed(rows):
             if row["val_accuracy"] != "": # val stage
                 if (float(row["val_accuracy"]) < 99
-                    and target_row is not None
+                    # and target_row is not None
                     ):
                     break
                 target_row = row
         
-        required_val_steps = int(target_row["step"])
+        if target_row is None:
+            required_val_steps = 99999
+        else: 
+            required_val_steps = int(target_row["step"])
         
     return train_data_pct, required_training_steps, required_val_steps
 

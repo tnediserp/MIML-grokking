@@ -1,6 +1,7 @@
 # PKU MIML Course Project: Grokking
 
 ## News (updated)
+- Subtasks 1, 2 finished.
 - Grokking is produced for Transformer (converges in $5 \times 10^4$ steps). The grokking curve looks nice.
 - Grokking is produced for LSTM (converges in $10^5$ steps with default hparams. If you want it to converge faster, increase the weight decay, e.g. to $1.0$.)
 - Grokking is produced for MLP (It converges in $\approx 5 \times 10^4$ steps, i.e., $10^4$ epochs.)
@@ -9,15 +10,13 @@
 ## Missions (updated)
 When you are working on a file or modified some codes, please inform us in the WeChat group and update the codes in time.
 - 沙柯岑
-  - Work on the data preparing code.
-  - Try to generalize it to the $K$-wise addition, (or figure out an appropriate way to generate training/validation data for $K$-wise addition).
-  - Tokens: Perhaps `./grok/data.py`, and the `prepare_data()` functions in every implemented model.
+  - Do subtask 4.
+  - Option 1: Choose a small prime $p$. Draw the $\alpha$-(generalization step) curve for small $K$'s (e.g., $K = 2, 3, 4$). Plot them in the same figure.
+  - Option 2: Try large $K$'s by using only a (randomly chosen) subset of all $p^K$ equations.
 - 吴于子恒
-  - Do task 3 on the MLP model, i.e., do experiments on optimizers, training data fractions, dropouts, weight decay... (Hopefully this could be fast, because the training of MLP can be done very fast.)
-  - Tokens: Perhaps `./grok/mlp.py`, especially some hyper-parameters defined in the `add_model_specific_args()` function.
+  - Do subtask 3.
 - 岳镝
-  - Try to produce grokking phenomenon for Transformer and LSTM
-  - Tokens: `./grok/transformer.py` and `./grok/lstm.py`.
+  - Do subtask 3.
 
 ## Paper
 
@@ -71,3 +70,9 @@ python ./scripts/visualize_metrics.py -i ./lightning_logs/addition_50%_MLP -o ./
 It is OK to have sub-dirs such as version_0, version_1 in that directory, and the important thing is that they should be **consistent** (with the same training fraction, model..., and with no overlap in epochs/steps)
 
 You will find the output curves in directory `./output/grokking_curves`.
+
+To examine the influence of the training data percentage $\alpha$, run 
+```
+python ./scripts/draw_alpha_steps.py -i ./lightning_logs/Transformer_alpha -o ./output
+```
+The $\alpha$-generalization step curve can be found in `./output/Transformer_alpha`.
