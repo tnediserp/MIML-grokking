@@ -1,6 +1,7 @@
 # PKU MIML Course Project: Grokking
 
 ## News (updated)
+- Finish part of task 3.
 - Subtasks 1, 2 finished.
 - Grokking is produced for Transformer (converges in $5 \times 10^4$ steps). The grokking curve looks nice.
 - Grokking is produced for LSTM (converges in $10^5$ steps with default hparams. If you want it to converge faster, increase the weight decay, e.g. to $1.0$.)
@@ -76,3 +77,11 @@ To examine the influence of the training data percentage $\alpha$, run
 python ./scripts/draw_alpha_steps.py -i ./lightning_logs/Transformer_alpha -o ./output
 ```
 The $\alpha$-generalization step curve can be found in `./output/Transformer_alpha`.
+
+In subtask 3, we construct different settings of learning rate, dropout, weight decay, optimizers... 
+We plot the highest accuracy within $10^5$ training steps as a function of $\alpha$.
+Run
+```
+python ./scripts/draw_alpha_acc.py
+```
+and see the result in `./output/different_settings/different_settings.png`.
