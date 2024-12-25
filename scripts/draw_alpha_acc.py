@@ -64,27 +64,27 @@ def load_all_metrics(run_dir):
     return alpha, train_acc_list, val_acc_list
 
 input_dirs = [
-    "./lightning_logs/2SGD0.001", 
-    "./lightning_logs/3SGD0.001+weight_decay",
-    "./lightning_logs/4RMSprop",
-    "./lightning_logs/9no_dropout",
-    "./lightning_logs/Transformer_alpha",
-    "",
-    "./lightning_logs/Adam_fullbatch",
-    "./lightning_logs/Adam",
-    ""
+    "./lightning_logs/1AdamW_lr0.001_dropout0.1", 
+    "./lightning_logs/2Adam",
+    "./lightning_logs/3Adam+full_batch",
+    "./lightning_logs/4SGD_lr0.001",
+    "./lightning_logs/5SGD_lr0.01",
+    "./lightning_logs/6SGD_lr0.001+weight_decay",
+    "./lightning_logs/7RMSprop",
+    "./lightning_logs/8AdamW_lr0.0001_dropout0.1",
+    "./lightning_logs/9AdamW_lr0.001_dropout0"
     ]
 
 titles = [
+    "AdamW, weight decay 0.1",
+    "mini-batch Adam",
+    "full-batch Adam",
     "SGD with Nesterov",
+    "SGD with Nesterov, learning rate 0.01",
     "SGD with Nesterov, weight decay 0.1",
     "RMSprop, alpha = 0.9",
-    "AdamW, weight decay 0.1, dropout 0",
-    "AdamW, weight decay 0.1",
-    "To be decided",
-    "full-batchh Adam",
-    "mini-batch Adam",
-    "To be decided"
+    "AdamW, weight decay 0.1, learning rate 0.0001",
+    "AdamW, weight decay 0.1, dropout 0"
     ]
 
 output_dir = "./output/different_settings"
