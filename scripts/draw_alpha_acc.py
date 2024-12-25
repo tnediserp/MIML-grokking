@@ -64,21 +64,33 @@ def load_all_metrics(run_dir):
     return alpha, train_acc_list, val_acc_list
 
 input_dirs = [
-    # "./lightning_logs/SGDdata", 
+    "./lightning_logs/2SGD0.001", 
+    "./lightning_logs/3SGD0.001+weight_decay",
+    "./lightning_logs/4RMSprop",
+    "",
     "./lightning_logs/Transformer_alpha",
-    "./lightning_logs/Adam"
+    "",
+    "./lightning_logs/Adam_fullbatch",
+    "./lightning_logs/Adam",
+    ""
     ]
 
 titles = [
-    # "SGD with momentum 0.9",
-    "AdamW with weight decay 0.1",
-    "mini-batch Adam"
-          ]
+    "SGD with Nesterov",
+    "SGD with Nesterov, weight decay 0.1",
+    "RMSprop, alpha = 0.9",
+    "To be decided",
+    "AdamW, weight decay 0.1",
+    "To be decided",
+    "full-batchh Adam",
+    "mini-batch Adam",
+    "To be decided"
+    ]
 
 output_dir = "./output/different_settings"
 
 try:
-    fig, axes = plt.subplots(3, 3, figsize=(12, 12))
+    fig, axes = plt.subplots(3, 3, figsize=(12, 9))
     fig.suptitle("Highest validation accuracy within 100000 training steps", fontsize=16)
     
     fig.text(0.5, 0.04, "Training data percentage", ha="center", fontsize=14)
@@ -91,8 +103,7 @@ try:
         if i >= len(titles):
             break
         
-        alpha, train_acc_list, val_acc_list = load_all_metrics(input_dirs[i])
-        
+        ax.set_title(titles[i])
         ymin = 0
         ymax = 105
         xmin = 15
@@ -101,10 +112,17 @@ try:
         ax.xaxis.set_major_formatter(mtick.PercentFormatter())
         ax.yaxis.set_major_formatter(mtick.PercentFormatter())
         
+        if input_dirs[i] == "":
+            continue
+        
+        alpha, train_acc_list, val_acc_list = load_all_metrics(input_dirs[i])
+        
         ax.plot(alpha, val_acc_list, marker="o", markersize=6, linestyle="-")
-        ax.set_title(titles[i])
-        ax.legend()
+        
+        # ax.legend()
 
+    plt.subplots_adjust(hspace=0.5)
+    
     image_file = output_dir + "/different_settings.png"
 
     d = os.path.split(image_file)[0]
