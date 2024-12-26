@@ -64,27 +64,27 @@ def load_all_metrics(run_dir):
     return alpha, train_acc_list, val_acc_list
 
 input_dirs = [
-    "./lightning_logs/2SGD0.001", 
-    "./lightning_logs/3SGD0.001+weight_decay",
-    "./lightning_logs/4RMSprop",
-    "./lightning_logs/9no_dropout",
-    "./lightning_logs/Transformer_alpha",
-    "",
-    "./lightning_logs/Adam_fullbatch",
-    "./lightning_logs/Adam",
-    ""
+    "./lightning_logs/1AdamW_lr0.001_dropout0.1", 
+    "./lightning_logs/2Adam",
+    "./lightning_logs/3Adam+full_batch",
+    "./lightning_logs/4SGD_lr0.001",
+    "./lightning_logs/5SGD_lr0.01",
+    "./lightning_logs/6SGD_lr0.001+weight_decay",
+    "./lightning_logs/7RMSprop",
+    "./lightning_logs/8AdamW_lr0.0001_dropout0.1",
+    "./lightning_logs/9AdamW_lr0.001_dropout0"
     ]
 
 titles = [
+    "AdamW,weight decay 0.1",
+    "Minibatch Adam",
+    "Full batch Adam",
     "SGD with Nesterov",
-    "SGD with Nesterov, weight decay 0.1",
-    "RMSprop, alpha = 0.9",
-    "AdamW, weight decay 0.1, dropout 0",
-    "AdamW, weight decay 0.1",
-    "To be decided",
-    "full-batchh Adam",
-    "mini-batch Adam",
-    "To be decided"
+    "SGD with Nesterov,10x baseline LR",
+    "SGD with Nesterov,weight decay 0.1",
+    "RMSprop,alpha 0.9",
+    "AdamW,0.1x baseline LR",
+    "dropout 0,AdamW"
     ]
 
 output_dir = "./output/different_settings"
@@ -93,10 +93,10 @@ try:
     fig, axes = plt.subplots(3, 3, figsize=(12, 9))
     fig.suptitle("Highest validation accuracy within 100000 training steps", fontsize=16)
     
-    fig.text(0.5, 0.04, "Training data percentage", ha="center", fontsize=14)
+    fig.text(0.5, 0.04, "training data fraction", ha="center", fontsize=14)
     fig.text(0.04, 0.5, "Highest validation accuracy", va="center", rotation="vertical", fontsize=14)
 
-    # plt.xlabel('Training data percentage')
+    # plt.xlabel('training data fraction')
     # plt.ylabel("Highest validation accuracy")
 
     for i, ax in enumerate(axes.flat):
@@ -104,7 +104,7 @@ try:
             break
         
         ax.set_title(titles[i])
-        ymin = 0
+        ymin = -5
         ymax = 105
         xmin = 15
         xmax = 85
