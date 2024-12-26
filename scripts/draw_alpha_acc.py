@@ -76,15 +76,15 @@ input_dirs = [
     ]
 
 titles = [
-    "AdamW, weight decay 0.1",
-    "mini-batch Adam",
-    "full-batch Adam",
+    "AdamW,weight decay 0.1",
+    "Minibatch Adam",
+    "Full batch Adam",
     "SGD with Nesterov",
-    "SGD with Nesterov, learning rate 0.01",
-    "SGD with Nesterov, weight decay 0.1",
-    "RMSprop, alpha = 0.9",
-    "AdamW, weight decay 0.1, learning rate 0.0001",
-    "AdamW, weight decay 0.1, dropout 0"
+    "SGD with Nesterov,10x baseline LR",
+    "SGD with Nesterov,weight decay 0.1",
+    "RMSprop,alpha 0.9",
+    "AdamW,0.1x baseline LR",
+    "dropout 0,AdamW"
     ]
 
 output_dir = "./output/different_settings"
@@ -93,10 +93,10 @@ try:
     fig, axes = plt.subplots(3, 3, figsize=(12, 9))
     fig.suptitle("Highest validation accuracy within 100000 training steps", fontsize=16)
     
-    fig.text(0.5, 0.04, "Training data percentage", ha="center", fontsize=14)
+    fig.text(0.5, 0.04, "training data fraction", ha="center", fontsize=14)
     fig.text(0.04, 0.5, "Highest validation accuracy", va="center", rotation="vertical", fontsize=14)
 
-    # plt.xlabel('Training data percentage')
+    # plt.xlabel('training data fraction')
     # plt.ylabel("Highest validation accuracy")
 
     for i, ax in enumerate(axes.flat):
@@ -104,7 +104,7 @@ try:
             break
         
         ax.set_title(titles[i])
-        ymin = 0
+        ymin = -5
         ymax = 105
         xmin = 15
         xmax = 85
