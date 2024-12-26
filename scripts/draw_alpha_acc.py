@@ -65,26 +65,26 @@ def load_all_metrics(run_dir):
 
 input_dirs = [
     "./lightning_logs/1AdamW_lr0.001_dropout0.1", 
-    "./lightning_logs/2Adam",
-    "./lightning_logs/3Adam+full_batch",
+    "./lightning_logs/8AdamW_lr0.0001_dropout0.1",
+    "./lightning_logs/9AdamW_lr0.001_dropout0",
     "./lightning_logs/4SGD_lr0.001",
     "./lightning_logs/5SGD_lr0.01",
     "./lightning_logs/6SGD_lr0.001+weight_decay",
-    "./lightning_logs/7RMSprop",
-    "./lightning_logs/8AdamW_lr0.0001_dropout0.1",
-    "./lightning_logs/9AdamW_lr0.001_dropout0"
+    "./lightning_logs/2Adam",
+    "./lightning_logs/3Adam+full_batch",
+    "./lightning_logs/7RMSprop"
     ]
 
 titles = [
-    "AdamW,weight decay 0.1",
-    "Minibatch Adam",
-    "Full batch Adam",
+    "AdamW",
+    "AdamW,0.1x baseline LR",
+    "AdamW, dropout 0",
     "SGD with Nesterov",
     "SGD with Nesterov,10x baseline LR",
     "SGD with Nesterov,weight decay 0.1",
-    "RMSprop,alpha 0.9",
-    "AdamW,0.1x baseline LR",
-    "dropout 0,AdamW"
+    "Minibatch Adam",
+    "Full batch Adam",
+    "RMSprop, alpha 0.9"
     ]
 
 output_dir = "./output/different_settings"
