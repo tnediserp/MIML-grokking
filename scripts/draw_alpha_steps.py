@@ -119,8 +119,8 @@ try:
     ymax = 100000
     ax.axis(ymin=ymin, ymax=ymax)
     
-    ax.plot(alpha, train_steps, label="train", color="red", marker="o", markersize=6, linestyle="-")
-    ax.plot(alpha, val_steps, label="val", color="blue", marker="x", markersize=6, linestyle="-")
+    ax.plot(alpha, train_steps, label="train", marker="o", markersize=6, linestyle="-")
+    ax.plot(alpha, val_steps, label="val", marker="x", markersize=6, linestyle="-")
     ax.legend()
     
     image_file = f"{image_dir}/Transformer_alpha/Transformer_alpha"
