@@ -305,8 +305,8 @@ def create_grokking_curves(
     if not Y_train or not Y_val:
         logger.warning(f"No train or val data")
     
-    ax.plot(X_train, Y_train, label="train", color="red")
-    ax.plot(X_val, Y_val, label="val", color="blue")
+    ax.plot(X_train, Y_train, label="train")
+    ax.plot(X_val, Y_val, label="val")
     ax.legend()
     
     img_file = f"{image_dir}/grokking_curves/{operation}_{train_percent}%_{model_name}_{by}"
@@ -589,6 +589,47 @@ try:
     print(f"model name = {model_name}")
     
     create_grokking_curves(metric_data, operation, train_pct, model_name=model_name, by="step")
+    
+    ### draw the curves for weight decay
+    weight_decays = [0, 0.001, 0.01, 0.1, 
+                     0.2, 0.4, 1, 1.5]
+    
+    fig, axes = plt.subplots(2, 4, figsize=(18, 8))
+    fig.suptitle("Training/validation curves with different weight decay", fontsize=16)
+    
+    fig.text(0.5, 0.04, "Training steps", ha="center", fontsize=14)
+    fig.text(0.04, 0.5, "Accuracy", va="center", rotation="vertical", fontsize=14)
+    
+    for i, ax in enumerate(axes.flat):
+        expt_dir = "./lightning_logs/vary_weight_decay/" + str(weight_decays[i])
+        
+        expt_metrics = load_expt_metrics(expt_dir, args)
+        
+        ax.set_title(f"weight decay {weight_decays[i]}")
+        ymin = 0
+        ymax = 100
+        # xmin = 0
+        # xmax = 100000
+        ax.axis(ymin=ymin, ymax=ymax)
+        ax.yaxis.set_major_formatter(mtick.PercentFormatter())
+        ax.set_xscale('log')
+        
+        ax.plot(expt_metrics["train"]["step"], expt_metrics["train"]["train_accuracy"], label="train")
+        
+        ax.plot(expt_metrics["val"]["step"], expt_metrics["val"]["val_accuracy"], label="val")
+        
+        ax.legend()
+        
+    plt.subplots_adjust(hspace=0.5)
+    
+    image_file = args.output_dir + "/weight_decay/weight_decay.png"
+
+    d = os.path.split(image_file)[0]
+    os.makedirs(d, exist_ok=True)
+    print(f"Writing {image_file}")
+    fig.savefig(image_file)
+    plt.close(fig)
+        
 
     # for by in ["step", "epoch"]:
     #     create_loss_curves(metric_data, arch, operation, by=by)
