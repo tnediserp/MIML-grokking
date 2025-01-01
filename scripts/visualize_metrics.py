@@ -121,10 +121,18 @@ def load_run_metrics(
     from os import walk
 
     # expt_dirs = [version_0, version_1...]
-    _, expt_dirs, _ = next(os.walk(run_dir))
+    metrics_path = os.path.join(run_dir, "metrics.csv")
+    
+    if os.path.exists(metrics_path):
+        expt_dirs = [run_dir]
+    else:
+        expt_dirs = [os.path.join(run_dir, folder) for folder in os.listdir(run_dir)
+                      if os.path.isdir(os.path.join(run_dir, folder))]
+        # _, expt_dirs, _ = next(os.walk(run_dir))
+    
     for expt_dir in tqdm(expt_dirs, unit="expt"):
         try:
-            expt_data = load_expt_metrics(f"{run_dir}/{expt_dir}", args)
+            expt_data = load_expt_metrics(expt_dir, args)
             train_data_pct = expt_data["hparams"]["train_data_pct"]
             
             if train_data_pct not in metric_data:
@@ -135,7 +143,7 @@ def load_run_metrics(
                         metric_data[train_data_pct][phase][key].extend(value)
         
         except FileNotFoundError:
-            print(f"{run_dir}/{expt_dir}: File not found")
+            print(f"{expt_dir}: File not found")
             pass
     return metric_data
 
@@ -270,7 +278,7 @@ def create_grokking_curves(
     max_increment=0,
     cmap="viridis"
 ):
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(8, 6))
     plt.title(f"Modular {operation} (training on {train_percent}% of data with {model_name})")
     
     plt.xscale('log')
@@ -309,7 +317,7 @@ def create_grokking_curves(
     ax.plot(X_val, Y_val, label="val")
     ax.legend()
     
-    img_file = f"{image_dir}/grokking_curves/{operation}_{train_percent}%_{model_name}_{by}"
+    img_file = f"{image_dir}/grokking_curves/{operation}_{train_percent}_{model_name}_{by}"
     if most_interesting_only:
         img_file += "_most_interesting"
     img_file += ".png"
@@ -319,6 +327,67 @@ def create_grokking_curves(
     fig.savefig(img_file)
     plt.close(fig)
 
+def create_loss_curves(
+    metric_data,
+    operation,
+    train_percent=50,
+    model_name="Transformer",
+    most_interesting_only=False,
+    image_dir=args.output_dir,
+    by="step",
+    max_increment=0,
+    cmap="viridis"
+):
+    fig, ax = plt.subplots(figsize=(8, 6))
+    plt.title(f"Modular {operation} (training on {train_percent}% of data with {model_name})")
+    
+    plt.xscale('log')
+    plt.xlabel(by)
+    plt.yscale('linear')
+    plt.ylabel('loss')
+    # ax.yaxis.set_major_formatter(mtick.PercentFormatter())
+    # ymin = 1e-16
+    # ymax = 101
+    # ax.axis(ymin=ymin, ymax=ymax)
+    
+    T = list(sorted(metric_data.keys()))
+    T_max = int(T[-1])
+    T_min = int(T[0])
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=T[0], vmax=T[-1]))
+    
+    X_train = metric_data[train_percent]["train"][by]
+    X_val = metric_data[train_percent]["val"][by]
+    Y_train = metric_data[train_percent]["train"]["train_loss"]
+    Y_val = metric_data[train_percent]["val"]["val_loss"]
+
+    if max_increment > 0:
+        X_train = [x for x in X_train if x <= max_increment]
+        Y_train = Y_train[: len(X_train)]
+        
+        X_val = [x for x in X_val if x <= max_increment]
+        Y_val = Y_val[: len(X_val)]
+
+    if len(X_train) != len(Y_train) or len(X_val) != len(Y_val):
+        logger.warning(f"Mismatched train or val data")
+
+    if not Y_train or not Y_val:
+        logger.warning(f"No train or val data")
+    
+    ax.plot(X_train, Y_train, label="train")
+    ax.plot(X_val, Y_val, label="val")
+    ax.legend()
+    
+    img_file = f"{image_dir}/loss_curves/{operation}_{train_percent}_{model_name}_{by}"
+    if most_interesting_only:
+        img_file += "_most_interesting"
+    img_file += ".png"
+    d = os.path.split(img_file)[0]
+    os.makedirs(d, exist_ok=True)
+    print(f"Writing {img_file}")
+    fig.savefig(img_file)
+    plt.close(fig)
+
+"""
 def create_loss_curves(
     metric_data,
     arch,
@@ -430,7 +499,7 @@ def create_loss_curves(
     print(f"Writing {img_file}")
     fig.savefig(img_file)
     plt.close(fig)
-
+"""
 
 def create_max_accuracy_curves(
     metric_data,
@@ -589,6 +658,9 @@ try:
     print(f"model name = {model_name}")
     
     create_grokking_curves(metric_data, operation, train_pct, model_name=model_name, by="step")
+    
+    ### loss curves
+    create_loss_curves(metric_data, operation, train_pct, model_name=model_name, by="step")
     
     ### draw the curves for weight decay
     weight_decays = [0, 0.001, 0.01, 0.1, 
