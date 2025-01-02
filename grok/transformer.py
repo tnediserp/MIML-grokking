@@ -468,6 +468,7 @@ class TrainableTransformer(LightningModule):
             help="for list operations, the length of the lists",
         )
 
+        parser.add_argument("--A_fraction", type=float, default=1)
         parser.add_argument("--train_data_pct", type=float, default=50) # The training set size is 50% by default
         parser.add_argument("--warmup_steps", type=int, default=10)
         parser.add_argument("--anneal_lr_steps", type=int, default=100000)
@@ -514,6 +515,7 @@ class TrainableTransformer(LightningModule):
             operator=self.hparams.math_operator,  # type: ignore
             operand_length=self.hparams.operand_length,  # type: ignore
             data_dir=self.hparams.datadir,  # type: ignore
+            A_fraction=self.hparams.A_fraction
         )
         
         print(f"training = {len(self.train_dataset)}, val = {len(self.val_dataset)}")

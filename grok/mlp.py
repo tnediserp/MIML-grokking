@@ -49,8 +49,8 @@ class TrainableMLP(LightningModule):
         self.context_len = 6
         self.vocab_size = len(self.train_dataset.tokenizer)
         
-        hidden_size = 256
-        num_layers = 3
+        hidden_size = self.hparams.d_model
+        num_layers = self.hparams.n_layers
         
         layers = []
         current_size = 2 * self.vocab_size
@@ -60,7 +60,7 @@ class TrainableMLP(LightningModule):
             layers.append(nn.Dropout(hparams.dropout))
             current_size = hidden_size
         
-        layers.append(nn.Linear(hidden_size, self.vocab_size))
+        layers.append(nn.Linear(current_size, self.vocab_size))
         
         self.mlp = nn.Sequential(*layers)
         
@@ -101,9 +101,9 @@ class TrainableMLP(LightningModule):
 
         parser.add_argument("--max_epochs", type=int, default=None)
         parser.add_argument("--max_steps", type=int, default=100000)
-        parser.add_argument("--n_layers", type=int, default=2)
+        parser.add_argument("--n_layers", type=int, default=3)
         parser.add_argument("--n_heads", type=int, default=4)
-        parser.add_argument("--d_model", type=int, default=128)
+        parser.add_argument("--d_model", type=int, default=256)
         parser.add_argument("--dropout", type=float, default=0.1)
         parser.add_argument("--weight_noise", type=float, default=0.0)
         parser.add_argument("--non_linearity", type=str, default="relu")
