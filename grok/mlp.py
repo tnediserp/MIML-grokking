@@ -53,7 +53,7 @@ class TrainableMLP(LightningModule):
         num_layers = self.hparams.n_layers
         
         layers = []
-        current_size = 2 * self.vocab_size
+        current_size = self.hparams.num_operand * self.vocab_size
         for _ in range(num_layers):
             layers.append(nn.Linear(current_size, hidden_size))
             layers.append(nn.ReLU())
@@ -115,6 +115,7 @@ class TrainableMLP(LightningModule):
             type=int,
             help="for list operations, the length of the lists",
         )
+        parser.add_argument("--num_operand", type=int, default=2)
 
         parser.add_argument("--A_fraction", type=float, default=1)
         parser.add_argument("--train_data_pct", type=float, default=50) # The training set size is 50% by default
@@ -162,6 +163,7 @@ class TrainableMLP(LightningModule):
             operator=self.hparams.math_operator,  # type: ignore
             operand_length=self.hparams.operand_length,  # type: ignore
             data_dir=self.hparams.datadir,  # type: ignore
+            num_operand=self.hparams.num_operand,
             A_fraction=self.hparams.A_fraction
         )
         
@@ -337,22 +339,53 @@ class TrainableMLP(LightningModule):
 
     def one_hot_encoder(self, equation: Tensor, num_classes: int):
         """
-        given a (encoded) equation a + b = c, encode the inputs as one-hot vectors (e_a, e_b), where the dimensions of e_a, e_b is num_classes.
-        return a tensor onehot_x, of size 2 * num_classes
+        Given an equation "a + b + ... + z = result", extract [onehot(a), onehot(b), ..., onehot(z)]
+        Note: implemented for k-wise addition where k >= 2
+        return a tensor onehots, of size K * num_classes
         """
         # find the position of "+"
         add_token_index = self.train_dataset.tokenizer.stoi["+"]
-        add_position_t = torch.nonzero(equation[0, :] == add_token_index, as_tuple=False)
-        add_position = int(add_position_t.squeeze())
+        # add_position_t = torch.nonzero(equation[0, :] == add_token_index, as_tuple=False)
+        # add_position = int(add_position_t.squeeze())
         
-        # for the equation a + b = c, encode the inputs as one-hot vectors (e_a, e_b), where the dimensions of e_a, e_b is num_classes.
-        num_a = equation[..., add_position - 1] # shape = batchsize
-        num_b = equation[..., add_position + 1] # shape = batchsize
-        onehot_a = F.one_hot(num_a, num_classes) # shape = batcsize * num_classes
-        onehot_b = F.one_hot(num_b, num_classes) # shape = batchsize * num_classes
-        onehot_x = torch.stack([onehot_a, onehot_b], dim=-2).float() # shape = batchsize * 2 * num_classes
+        # Find positions of all "+" tokens in the equation
+        add_positions = torch.nonzero(equation[0, :] == add_token_index, as_tuple=False).squeeze()
+        # Ensure add_positions is at least 1-D tensor
+        if add_positions.dim() == 0:
+            add_positions = add_positions.unsqueeze(0)
+        if len(add_positions) < 1:
+            raise ValueError("Equation must contain at least one '+' token.")
         
-        return onehot_x
+        # Initialize a list to hold the one-hot vectors of all operands
+        operand_onehots = []
+
+        # Add the first operand before the first "+"
+        num_first = equation[..., add_positions[0] - 1]
+        onehot_first = F.one_hot(num_first, num_classes)
+        operand_onehots.append(onehot_first)
+
+        # Add operands between each pair of "+" tokens
+        for i in range(len(add_positions) - 1):
+            num_between = equation[..., add_positions[i] + 1]
+            onehot_between = F.one_hot(num_between, num_classes)
+            operand_onehots.append(onehot_between)
+        
+        # Add the last operand after the last "+"
+        num_last = equation[..., add_positions[-1] + 1]
+        onehot_last = F.one_hot(num_last, num_classes)
+        operand_onehots.append(onehot_last)
+
+        # Stack the operand one-hot vectors into a tensor with shape (batch_size, k, num_classes)
+        onehots = torch.stack(operand_onehots, dim=1).float()
+        
+        # # for the equation a + b = c, encode the inputs as one-hot vectors (e_a, e_b), where the dimensions of e_a, e_b is num_classes.
+        # num_a = equation[..., add_position - 1] # shape = batchsize
+        # num_b = equation[..., add_position + 1] # shape = batchsize
+        # onehot_a = F.one_hot(num_a, num_classes) # shape = batcsize * num_classes
+        # onehot_b = F.one_hot(num_b, num_classes) # shape = batchsize * num_classes
+        # onehot_x = torch.stack([onehot_a, onehot_b], dim=-2).float() # shape = batchsize * 2 * num_classes
+        
+        return onehots
 
     def _step(
         self,
