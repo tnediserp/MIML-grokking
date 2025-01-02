@@ -1,10 +1,11 @@
+A_fraction: 1
 anneal_lr: false
 anneal_lr_steps: 100000
 batchsize: 0
 checkpoint_path: /root/autodl-tmp/MIML-grokking/checkpoints
 ckpt_epoch: '0'
-d_key: 32.0
-d_model: 128
+d_key: 64.0
+d_model: 256
 datadir: /root/autodl-tmp/MIML-grokking/data
 dropout: 0.1
 gpu: 0
