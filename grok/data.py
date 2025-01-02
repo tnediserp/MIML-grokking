@@ -142,6 +142,7 @@ class ArithmeticDataset:
         operator: str,
         operand_length: Optional[int] = None,
         data_dir: str = DEFAULT_DATA_DIR,
+        A_fraction = 1
     ):
         """
         Creates training and validation datasets
@@ -155,7 +156,7 @@ class ArithmeticDataset:
         assert (0 < train_pct) and (train_pct < 100)
 
         ds_name = cls.get_dsname(operator, operand_length)
-        eqs = cls.make_data(operator, operand_length)
+        eqs = cls.make_data(operator, operand_length, A_fraction=A_fraction)
 
         train_rows, _ = cls.calc_split_len(train_pct, len(eqs))
 
@@ -197,7 +198,7 @@ class ArithmeticDataset:
     #    return " ".join(map(render, parts))
 
     @classmethod
-    def _make_binary_operation_data(cls, operator: str, operands=None) -> List[str]:
+    def _make_binary_operation_data(cls, operator: str, operands=None, A_fraction=1.0) -> List[str]:
         if operator == "s5":
             operands = operands or list(range(5))
             elems = map(np.array, itertools.permutations(operands))
@@ -212,8 +213,21 @@ class ArithmeticDataset:
             tuples = itertools.product(elems, repeat=2)
         else:
             operands = operands or NUMS
-            #modify here to change addition number
-            tuples = itertools.product(operands, repeat=2) 
+            
+            if A_fraction < 1.0:
+                '''
+                Here we study {a + b: a \in Z_p, b \in Z_p}.
+                As a simple generalization, lets say A \subset Z_p is a random subset of size a_fraction * p.
+                Then how about {a + b: a \in A, b \in Z_p}?
+                The following a few lines construct this set.
+                '''
+                A_size = max(1, int(A_fraction * MODULUS))
+                A = random.sample(operands, A_size)
+                tuples = itertools.product(A, operands)
+            
+            else: 
+                #modify here to change addition number
+                tuples = itertools.product(operands, repeat=2) 
         # if operator == "s5":
         #     print("elems", list(elems))
         #     print("tuples", list(tuples))
@@ -308,12 +322,12 @@ class ArithmeticDataset:
             return operator, 0
 
     @classmethod
-    def make_data(cls, operator, operands=None, shuffle=True, seed=0) -> List[str]:
+    def make_data(cls, operator, operands=None, shuffle=True, seed=0, A_fraction=1) -> List[str]:
         operator, noise_level = cls._get_operator_and_noise_level(operator)
         assert operator in VALID_OPERATORS
 
         if operator not in ["sort", "reverse", "copy"]:
-            data = cls._make_binary_operation_data(operator)
+            data = cls._make_binary_operation_data(operator, A_fraction=A_fraction)
         else:
             data = cls._make_unary_operation_data(operator, operands)
 
