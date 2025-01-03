@@ -1,4 +1,17 @@
 \section{Introduction}
 \label{sec:intro}
+When using neural network to train certain problems, generalization may occur long after the model overfits training set. This striking phenomenon is called grokking~\cite{Grokking}. In this project, we study the grokking phenomenon on training the modular addition task. Specifically, given a fixed prime number $p$, we consider equations in the form of modular arithmetic, where each equation consists of $K$ summands and is represented as a string:
+$$
+a_{1} + a_{2} + \cdots + a_{K} = b,
+$$
+where both the individual summands $a_i$ and the sum $b$ are elements of the finite field $\mathbb{Z}/p\mathbb{Z}$, comprising integers from $0$ to $p-1$.
 
-Grokking~\cite{Grokking}
+The input to our model is such an equation string. Each character within the string, including digits and the addition operator, is transformed into a one-hot vector representation. This encoding scheme assigns a unique binary vector to every possible character.
+
+The output of the model is also designed as a one-hot vector, corresponding to the predicted value of $b$ after decoding. During the training phase, the target output is the actual sum $b$, computed as the sum of $K$ modular numbers modulo $p$. The objective of the training process is to adjust the model parameters so that it learns to accurately predict the correct modular sum $b$ given any valid input equation string.
+
+We mainly focus on the phenomenon when $K=2$. In this case, we first generate all $p^2$ equations and shuffle them randomly. Given the training data fraction $\alpha\in(0,1)$, we take the first $\alpha$ data as training set and the rest as validation set.
+
+Our experiments are divided into 4 parts in section 3. \ref{sec:subtask1} reproduces the grokking phenomenon stated in \cite{Grokking} and study the effect of $\alpha$ on grokking phenomenon. \ref{sec:subtask2} uses other models such as LSTM and MLP to conduct the same task. \ref{sec:subtask3} investigates the impact of different optimizers(with different hyper-Parameters such as learning rate, weight decay and dropout) to grokking phenomenon. \ref{sec:subtask4} explores the grokking phenomenon for different $K$.  
+
+At the end of our report we give some explanations on grokking phenomenon, mainly based on \cite{JacotHG18}.
