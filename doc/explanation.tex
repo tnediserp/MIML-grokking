@@ -1,2 +1,19 @@
 \section{An Explanation of the Grokking Phenomenon}
 \label{sec:explanation}
+
+In this section, we provide an explanation of the grokking phenomenon based on~\cite{KumarBGP24}, which claims that grokking happens as a transition between different regimes of training.
+We first briefly review the kernel regime and rich regime defined in~\cite{KumarBGP24} in \cref{subsec:regimes}, and illustrate how they help explain the grokking phenomenon for modular addition in Sec XXX.
+
+\subsection{Kernel Regime And Rich Regime}
+\label{subsec:regimes}
+
+We have the following definition of neural tangent kernel (NTK).
+
+\begin{definition}[Neural Tangent Kernel~\cite{JacotHG18,KumarBGP24}]
+    Let $\Theta$ be the parameter space and $\mathcal{X}$ be the input space.
+    Let $f \colon \Theta \times \mathcal{X} \to \mathcal{Y}$ be a neural network.
+    For $\theta \in \Theta$, the \emph{neural tangent kernel} of $f(\theta, \cdot)$ is defined as 
+    \begin{align*}
+        K_\theta(\mathbf{x}, \mathbf{x}') := \nabla_\theta f(\theta, \mathbf{x}) \nabla_\theta f(\theta, \mathbf{x}')^\top
+    \end{align*}
+\end{definition}
