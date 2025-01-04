@@ -41,6 +41,6 @@ RMSprop and mini batch Adam have acceptable performance when $\alpha \geq 50\%$,
 We further study the impact of weight decay by training the transformer model with AdamW optimizer with different weight decay.
 The results are plotted in \cref{fig:different weight_decay}.
 As the weight decay increases, the generalization becomes easier, and the grokking phenomenon becomes less obvious. 
-However, it is worth noting that when the weight decay exceeds $0.2$, there are occasional "rollback" phenomena in training accuracy and validation accuracy on certain training steps, which occur more frequently as the weight decay increases. 
+However, it is worth noting that when the weight decay exceeds $0.2$, there are occasional ``rollback'' phenomena in training accuracy and validation accuracy on certain training steps, which occur more frequently as the weight decay increases. 
 When the weight decay is $1.5$ and the number of training steps exceeds $3 \times 10^4$, accuracy cannot even be restored. 
 The reason is worth further exploration, but at least it tells us that the selection of training steps does not need to be too large.
