@@ -1,18 +1,18 @@
-\subsection{Effects of Different Hyper-Parameters}
+\subsection{Effects of Different Hyperparameters}
 \label{sec:subtask3}
 
-In this task,we firstly choose 9 different settings to study the effects of different hyper-parameters on the transformer model,which are shown in \cref{fig:different_settings}.Then,we change 8 different weight_decay values to study its impact on training the transformer model especially,which is shown in \cref{fig:different weight_decay}.With a parameter setting of p=97, we employ a step budget of 1e5, a decision inspired by the original paper’s use.Similarly,the training accuracy raise up to 99\% within 1e3 in most experiments,but the validation accuracy differ from each other.
+In this task,we firstly choose 9 different settings to study the effects of different hyperparameters on the transformer model,which are shown in \cref{fig:different_settings}.Then,we change 8 different weight decay values to study its impact on training the transformer model especially,which is shown in \cref{fig:different weight_decay}.With a parameter setting of p=97, we employ a step budget of 1e5, a decision inspired by the original paper's use.Similarly,the training accuracy raise up to 99\% within 1e3 in most experiments,but the validation accuracy differ from each other.
 
-\begin{figure}[!ht]{0.9\textwidth}
+\begin{figure}[!ht]
     \centering
-    \includegraphics[width=\linewidth]{fig/different_settings/different_settings.png}
+    \includegraphics[width=0.9\textwidth]{fig/different_settings/different_settings.png}
     \caption{Grokking phenomenon for different settings}
     \label{fig:different_settings}
 \end{figure}
-\begin{figure}[!ht]{0.9\textwidth}
+\begin{figure}[!ht]
     \centering
-    \includegraphics[width=\linewidth]{fig/weight_decay/weight_decay.png}
-    \caption{Grokking phenomenon for different weight_decay}
+    \includegraphics[width=0.9\textwidth]{fig/weight_decay/weight_decay.png}
+    \caption{Grokking phenomenon for different weight decay}
     \label{fig:different weight_decay}
 \end{figure}
 

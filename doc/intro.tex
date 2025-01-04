@@ -1,17 +1,25 @@
 \section{Introduction}
 \label{sec:intro}
-When using neural network to train certain problems, generalization may occur long after the model overfits training set. This striking phenomenon is called grokking~\cite{Grokking}. In this project, we study the grokking phenomenon on training the modular addition task. Specifically, given a fixed prime number $p$, we consider equations in the form of modular arithmetic, where each equation consists of $K$ summands and is represented as a string:
-$$
-a_{1} + a_{2} + \cdots + a_{K} = b,
-$$
-where both the individual summands $a_i$ and the sum $b$ are elements of the finite field $\mathbb{Z}/p\mathbb{Z}$, comprising integers from $0$ to $p-1$.
 
-The input to our model is such an equation string. Each character within the string, including digits and the addition operator, is transformed into a one-hot vector representation. This encoding scheme assigns a unique binary vector to every possible character.
+In the study of machine learning, it is an important goal to understand the generalization dynamics of neural networks.
+Typically, the model's generalization ability can be well reflected by its performance on the training data.
+However, when training neural networks for certain problems, generalization may occur long after the model overfits the training data. 
+This striking phenomenon is called \emph{grokking}~\cite{Grokking}. 
+Ever since it was first introduced, exhausted efforts have been made to understand grokking from a theoretical viewpoint.
+For example, grokking is explained by the hardness of representation learning~\cite{LiuKNMTW22},
+the effect of weight decay and weight norm decrease~\cite{Grokking_circuit_efficiency,LiuMT23}
+and the transition between different training regimes~\cite{KumarBGP24,MohamadiLWS24}.
 
-The output of the model is also designed as a one-hot vector, corresponding to the predicted value of $b$ after decoding. During the training phase, the target output is the actual sum $b$, computed as the sum of $K$ modular numbers modulo $p$. The objective of the training process is to adjust the model parameters so that it learns to accurately predict the correct modular sum $b$ given any valid input equation string.
+Among all the learning tasks where grokking can be observed, the most well-studied one might be the \emph{modular addition problem}~\cite{Grokking,KumarBGP24,MohamadiLWS24,Gromov}.
+Specifically, given a fixed prime number $p$, consider learning the output of the modular arithmetic: % where each equation consists of $K$ summands and is represented as a string:
+\begin{equation}
+    a_{1} + a_{2} + \cdots + a_{K} = b,
+    \label{eqn:modular_addition}
+\end{equation}
+where both the individual summands $a_i$ and the sum $b$ are elements of the finite field $\mathbb{Z}/p\mathbb{Z}$.
+We model \eqref{eqn:modular_addition} as a classification problem, where classes are labeled by integers $b \in \{0, 1, \dots, p-1\}$.
+We mainly focus on the case $K=2$, and discuss general $K$-wise addition in \cref{sec:subtask4}.
 
-We mainly focus on the phenomenon when $K=2$. In this case, we first generate all $p^2$ equations and shuffle them randomly. Given the training data fraction $\alpha\in(0,1)$, we take the first $\alpha$ data as training set and the rest as validation set.
+% Our experiments are divided into 4 parts in section 3. \ref{sec:subtask1} reproduces the grokking phenomenon stated in \cite{Grokking} and study the effect of $\alpha$ on grokking phenomenon. \ref{sec:subtask2} uses other models such as LSTM and MLP to conduct the same task. \ref{sec:subtask3} investigates the impact of different optimizers(with different hyper-Parameters such as learning rate, weight decay and dropout) to grokking phenomenon. \ref{sec:subtask4} explores the grokking phenomenon for different $K$.  
 
-Our experiments are divided into 4 parts in section 3. \ref{sec:subtask1} reproduces the grokking phenomenon stated in \cite{Grokking} and study the effect of $\alpha$ on grokking phenomenon. \ref{sec:subtask2} uses other models such as LSTM and MLP to conduct the same task. \ref{sec:subtask3} investigates the impact of different optimizers(with different hyper-Parameters such as learning rate, weight decay and dropout) to grokking phenomenon. \ref{sec:subtask4} explores the grokking phenomenon for different $K$.  
-
-At the end of our report we give some explanations on grokking phenomenon, mainly based on \cite{JacotHG18}.
+% At the end of our report we give some explanations on grokking phenomenon, mainly based on \cite{JacotHG18}.
