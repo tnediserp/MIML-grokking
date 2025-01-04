@@ -64,10 +64,11 @@ def load_generalization_steps(expt_dir):
         required_training_steps = int(target_row["step"])
         
         target_row = None
-        for row in reversed(rows):
+        for row in rows:
             if row["val_accuracy"] != "": # val stage
-                if (float(row["val_accuracy"]) < 99
-                    # and target_row is not None
+                if (float(row["val_accuracy"]) >= 99
+                    and target_row is not None
+                    and float(target_row["val_accuracy"]) >= 99
                     ):
                     break
                 target_row = row
@@ -107,7 +108,7 @@ try:
     alpha, train_steps, val_steps = load_all_metrics(rundir)
     print("load metric data: success")
     
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(8, 5))
     plt.title(f"Steps until generalization for modular addition")
     
     plt.xscale('linear')

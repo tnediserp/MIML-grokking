@@ -278,7 +278,7 @@ def create_grokking_curves(
     max_increment=0,
     cmap="viridis"
 ):
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(8, 5))
     plt.title(f"Modular {operation} (training on {train_percent}% of data with {model_name})")
     
     plt.xscale('log')
@@ -338,7 +338,7 @@ def create_loss_curves(
     max_increment=0,
     cmap="viridis"
 ):
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(8, 5))
     plt.title(f"Modular {operation} (training on {train_percent}% of data with {model_name})")
     
     plt.xscale('log')
