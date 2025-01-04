@@ -1,7 +1,7 @@
 \section{Introduction}
 \label{sec:intro}
 
-In the study of machine learning, it is an important goal to understand the generalization dynamics of neural networks.
+In the field of machine learning, it is an important goal to understand the generalization dynamics of neural networks.
 Typically, the model's generalization ability can be well reflected by its performance on the training data.
 However, when training neural networks for certain problems, generalization may occur long after the model overfits the training data. 
 This striking phenomenon is called \emph{grokking}~\cite{Grokking}. 
@@ -10,7 +10,7 @@ For example, grokking is explained by the hardness of representation learning~\c
 the effect of weight decay and weight norm decrease~\cite{Grokking_circuit_efficiency,LiuMT23}
 and the transition between different training regimes~\cite{KumarBGP24,MohamadiLWS24}.
 
-Among all the learning tasks where grokking can be observed, the most well-studied one might be the \emph{modular addition problem}~\cite{Grokking,KumarBGP24,MohamadiLWS24,Gromov}.
+Among those learning tasks where grokking can be observed, the most well-studied one might be the \emph{modular addition problem}~\cite{Grokking,KumarBGP24,MohamadiLWS24,Gromov}.
 Specifically, given a fixed prime number $p$, consider learning the output of the modular arithmetic: % where each equation consists of $K$ summands and is represented as a string:
 \begin{equation}
     a_{1} + a_{2} + \cdots + a_{K} = b,

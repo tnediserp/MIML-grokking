@@ -2,13 +2,14 @@
 \label{sec:prelim}
 
 Throughout, we let $p$ be a prime and denote $\ZZ_p = \{0, 1, \dots, p-1\}$ to be the additive group modulo $p$.
-Each of the arithmetic equations in $\ZZ_p$ is initially represented by a token string \texttt{[`a', `+', `b', `=', `c']}.
-Let $d_{\mathrm{tok}}$ be the total number of tokens.
+Initially, each number or operand is encoded by a token, 
+and each arithmetic equation in $\ZZ_p$ is represented by a token string \texttt{[`a', `+', `b', `=', `c']}.
+Let $d_{\mathrm{tok}}$ be the total number of different tokens.
 For each token $t$, denote $e_t \in \RR^\dtok$ to be the one-hot encoding of $t$, (i.e., $e_t$ has only the $t$-th coordinate being $1$).
 For $a \in \ZZ_p$, we sometimes denote its corresponding token also by $a$, without causing any confusion.
 
 Our whole dataset includes all $p^K$ (tokenized) equations in $\ZZ_p$.
-Given the training data fraction $\alpha\in(0,1)$, we randomly take an $\alpha$-fraction of the dataset as the training set and the rest as the validation set.
+Given the training data fraction $\alpha\in(0,1)$, we randomly take an $\alpha$-fraction of the dataset as the training set and the rest serves as the validation set.
 
 Our classification model $f$ takes as input $(e_{a_1}, e_{a_2}, \dots, e_{a_K}) \in \RR^{K \cdot \dtok}$, where $a_i \in \ZZ_p$, and outputs a prediction vector $\mathbf{y} \in \RR^{\dtok}$.
 Throughout the model is evaluated by cross-entropy loss with the target output $e_{a_1 + a_2 + \dots + a_K}$.
