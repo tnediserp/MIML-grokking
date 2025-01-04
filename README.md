@@ -19,6 +19,7 @@ Our code is based on the official code from OpenAI [https://github.com/openai/gr
 Clone the repository by running
 ```
 git clone git@github.com:tnediserp/MIML-grokking.git
+cd ./MIML-grokking
 ```
 Run the following command to install the required libraries.
 ```bash
