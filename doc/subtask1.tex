@@ -4,7 +4,7 @@
 In this task, we investigate the grokking phenomenon in modular addition with the transformer model.
 Specifically, we use a decoder-only transformer with $2$ layers, width $d_{\mathrm{model}} = 128$, $4$ attention heads and dropout $0.1$.
 We use the AdamW optimizer with $\beta_1 = 0.9, \beta_2 = 0.98$, learning rate $10^{-3}$, weight decay $0.1$, and linear learning rate warmup over the first $10$ updates.
-For $p = 97$ and $\alpha = 0.5$, we randomly separate an $\alpha$ fraction from all $p^2$ equations in $\ZZ_p$ as the training set; the rest serves as the validation set.
+We set the prime to be $p = 97$ and the training data fraction to be $\alpha = 0.5$.
 The model is trained with minibatch size $512$ for $10^5$ steps.
 
 The accuracy and loss throughout the training process are plotted in \cref{fig:acc_and_loss_transformer}.
@@ -25,7 +25,7 @@ The accuracy and loss throughout the training process are plotted in \cref{fig:a
         \label{fig:loss_curve_transformer}
     \end{subfigure}
 
-    \caption{The grokking curves of transformer model}
+    \caption{The learning curves of transformer model}
     \label{fig:acc_and_loss_transformer}
 \end{figure}
 
@@ -35,7 +35,7 @@ Nevertheless, generalization does not happen until after $10^4$ steps.
 Interestingly, while the training loss decreases monotonically, an increase of the validation loss is observed before it begins to converge.
 
 We further study the effect of the training data fraction $\alpha$. 
-For each $\alpha$ we sample, we train the model on a random $\alpha$ fraction of all $p^2$ equations for at most $10^5$ steps, and determine the minimum number of steps required to achieve validation accuracy $\geq 99\%$.
+For each $\alpha$ we sample, we train the model for at most $10^5$ steps, and determine the minimum number of steps required to achieve validation accuracy $\geq 99\%$.
 The results are plotted in \cref{fig:transformer_alpha}.
 As a comparison, we plot the accuracy curves for $\alpha = 80\%$ and $\alpha = 33\%$ in \cref{fig:grokking_alpha_80,fig:grokking_alpha_33}, respectively.
 

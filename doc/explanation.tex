@@ -21,10 +21,11 @@ We have the following definition of neural tangent kernel (NTK).
 \end{definition}
 
 In the \emph{kernel regime}, we have the following approximation of the model output, 
-\begin{align*}
+\begin{align}
     f(\theta, \mathbf{x}) \approx f(\theta_0, \mathbf{x}) + \Braket{\nabla_{\theta} f(\theta_0, \mathbf{x}), \theta - \theta_0}.
-\end{align*}
-Note that the right-hand side is linear in $\theta$, which means that $f(\theta, \cdot)$ has approximately the same expressivity as the kernel method with respect to $K_{\theta_0}$, as defined in \cref{def:NTK}.
+    \label{eqn:tayler}
+\end{align}
+Note that the right-hand side of \eqref{eqn:tayler} is linear in $\theta$, which means that $f(\theta, \cdot)$ has approximately the same expressivity as the kernel method with respect to $K_{\theta_0}$, as defined in \cref{def:NTK}.
 Under gradient descent, the model's parameters $\theta$ are restricted to the affine subspace $W := \mathrm{span}\{\nabla_{\theta} f(\theta_0, \mathbf{x}_i)\}_{i=1}^n$.
 Therefore, the model will first converge to the local optimal solution $\theta_W^* \in W$ in the kernel regime.
 \emph{This corresponds to the stage where the model overfits the training data but does not generalize.}
@@ -32,13 +33,13 @@ Therefore, the model will first converge to the local optimal solution $\theta_W
 When the model begins to learn important non-linear features, it will escape $W$ and enter the \emph{rich regime}, where it finally converges towards the global optimal solution $\theta^*$.
 \emph{This corresponds to the generalization phase in the grokking phenomenon.}
 
-It is worth mentioning that normalization methods such as weight decay accelerates generalization by encouraging the model to escape from the kernel regime, which is consistent with our experiment results in \cref{sec:subtask3}.
+It is worth mentioning that normalization methods such as weight decay accelerates generalization by encouraging the model to escape from the kernel regime, which is consistent with our experiment results in \cref{sec:subtask3} (see \cref{fig:different weight_decay}).
 
 
 \subsection{Regime Transition in Modular Addition Problem}
 \label{subsec:explain_by_regimes}
 
-We further illustrate how grokking is related to the transition between the aforementioned two regimes in the modular addition problem.
+We further illustrate how grokking is related to the transition between the two aforementioned regimes in the modular addition problem.
 We first rewrite the target function $f^*$ as 
 \begin{align*}
     f^*(e_a, e_b) = e_{a+b} = H^a e_b = H^b e_a, 
@@ -88,8 +89,14 @@ We believe this interesting result reflects the mechanism of regime transition.
 For smaller $\lambda$'s, the target function $f_A^*$ behaves more like a linear function.
 Hence, the model tends to first learn these linear features.
 It is then trapped in the kernel regime, and have to take a long time to escape from the affine subspace $W$ and enter the rich regime;
-this is how grokking happens.
+\emph{this is how grokking happens}.
 To be specific, the peaks of the loss curves in \cref{fig:different_lambda_loss} approximately corresponds to the kernel regime, and the similar shapes can also be observed in \cref{fig:loss_curve_transformer,fig:loss_curve_LSTM,fig:loss_curve_MLP}.
 In contrast, For a larger $\lambda$, the function $f_A^*$ is very far from a linear map, hence forcing the model to learn other useful features.
 Therefore, the model quickly moves to the rich regime and converges to the global optimal solution.
 Since the transition happens immediately, grokking almost disappears in this setting.
+
+Finally, we note that the influence of non-linearity $\lambda$ is consistent with our results in \cref{sec:subtask4}.
+For $K \geq 3$, let $f^K$ and $f^{K-1}$ be the target functions of $K$-wise and $(K-1)$-wise modular addition, respectively.
+No hard to see that $f^{K-1}$ is equivalent to $f^K_{\{0\}}$, which has non-linearity $\lambda = 1/p$ compared with $f^K$.
+Therefore, it would be easier for $f^K$ to generalize than $f^{K-1}$.
+This explains our experiment results for $K = 2, 3, 4$ in \cref{fig:grok_of_K=2_3,fig:K=4}.
