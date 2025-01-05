@@ -41,7 +41,7 @@ We explain these arguments below:
 - `--max_lr`: Learning rate, set to $10^{-3}$ by default.
 - `--weight_decay`: Weight decay, set to $0.1$ by default.
 - `--num_operand`: $K$-wise addition, set to $K = 2$ by default. Note: only implemented for transformer.
-- `--A_fraction`: The non-linearity $\lambda \in (0, 1)$ (refer to Section 4 of our paper), set to $\lambda = 1$ by default.
+- `--A_fraction`: The non-linearity $\lambda \in (0, 1)$ (refer to Section 4 of our paper), set to $\lambda = 1$ by default. Note: only implemented for MLP.
 - `--ckpt_epoch`: Which checkpoint to load. Should be an integer that appears in `./checkpoints`. Set to $0$ by default, which means starting from the beginning.
 
 After training, the logs can be found in `./lighting_logs/version_0/metrics.csv`, and the hyperparameters are stored in `./lighting_logs/version_0/hparams.yaml`. You can also find existing logs in `./lightning_logs` that correspond to our experiments.
@@ -77,10 +77,13 @@ The resulting curves can be found in `./output/grokking_curves` and  `./output/l
 
 ## Files
 - `./scripts/train.py`: The main script of training.
-- `./scripts/visualize_metrics.py`, `./scripts/draw_alpha_acc.py`, `./scripts/draw_alpha_steps.py`, `./scripts/draw_p_and_Afraction.py`: Scripts for drawing curves.
+- `./scripts/visualize_metrics.py`, `./scripts/draw_alpha_acc.py`, `./scripts/draw_alpha_steps.py`, `./scripts/draw_p_and_Afraction.py`: Scripts for drawing curves. See the [Visualization](#visualization) section for details.
 - `./grok/data.py`: Preparing data.
 - `./grok/training.py`: Training.
 - `./grok/optimizer.py`: Implementation of customized optimizers.
 - `./grok/transformer.py`: Transformer model.
 - `./grok/lstm.py`: LSTM model.
 - `./grok/mlp.py`: MLP model.
+- `./lightning_logs/`: Logs of our experiments, which we use to produce the curves in our report. Your training logs will also be in this directory, e.g., in `./lighting_logs/version_0/`.
+- `./output/`: All the figures of our experiments.
+- `./doc/`: The `.tex` source files of our report, should be ignored.
